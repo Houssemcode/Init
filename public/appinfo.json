@@ -1,0 +1,18 @@
+{
+  "id": "tld.my.customlauncher",
+  "version": "1.0.0",
+  "vendor": "tld.my.customlauncher",
+  "type": "web",
+  "main": "index.html",
+  "title": "Home",
+  "appDescription": "Custom home screen: clock, your apps, and a wallpaper or USB slideshow.",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "iconColor": "#050505",
+  "bgColor": "#000000",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "transparent": false,
+  "splashBackground": "splash.png",
+  "requiredMemory": 20
+}
