@@ -77,4 +77,71 @@ w.clearWallpaperCache();
 eq(w.readWallpaperCache(id), null, 'clear empties the cache');
 globalThis.localStorage = {getItem: () => null, setItem: () => { throw new Error('quota'); }, removeItem: () => {}};
 eq(w.writeWallpaperCache(id, 'data:image/jpeg;base64,AAAA'), false, 'a full storage reports failure instead of throwing');
+// Every photo once per round, including reopening between every displayed photo.
+const deckMemory = {};
+const deckKey = 'customlauncher-wallpaper-deck-v1';
+const storage = {
+  getItem: (key) => deckMemory[key] || null,
+  setItem: (key, value) => { deckMemory[key] = value; }
+};
+globalThis.localStorage = storage;
+const photos = Array.from({length: 33}, (_, i) => `/photos/${i}.jpg`);
+let previous = '';
+for (let round = 0; round < 3; round++) {
+  const seen = [];
+  for (let i = 0; i < photos.length; i++) {
+    const deck = w.createShuffleOrder(photos, 'family');
+    const photo = deck.take();
+    if (i === 0 && previous) eq(photo !== previous, true, 'round boundary avoids immediate repeat');
+    seen.push(photo);
+    deck.shown(photo);
+    previous = photo;
+  }
+  eq([...new Set(seen)].sort(), [...photos].sort(), 'every photo appears once per round across reopen');
+}
+const saved = JSON.parse(deckMemory[deckKey]);
+for (const state of [
+  '{broken',
+  JSON.stringify({...saved, remaining: [photos[0], photos[0]]}),
+  JSON.stringify({...saved, remaining: ['/removed.jpg']}),
+  JSON.stringify({...saved, remaining: [saved.last]}),
+  JSON.stringify({...saved, remaining: [42]})
+]) {
+  deckMemory[deckKey] = state;
+  const deck = w.createShuffleOrder(photos, 'family');
+  const seen = Array.from({length: photos.length}, () => {
+    const photo = deck.take();
+    deck.shown(photo);
+    return photo;
+  });
+  eq([...new Set(seen)].sort(), [...photos].sort(), 'invalid persisted state recovers a complete valid round');
+}
+let deck = w.createShuffleOrder(['/other/only.jpg'], 'other');
+eq(deck.take(), '/other/only.jpg', 'changed folder rejects stale paths');
+deck.shown('/other/only.jpg');
+eq(w.createShuffleOrder(['/other/only.jpg'], 'other').take(), '/other/only.jpg', 'single photo remains usable after reopen');
+eq(w.createShuffleOrder([], 'empty').take(), undefined, 'empty folder is total');
+const changed = ['/new.jpg', photos[0]];
+deck = w.createShuffleOrder(changed, 'family');
+eq([deck.take(), deck.take()].sort(), [...changed].sort(), 'collection changes invalidate previous paths');
+// Merely selecting a photo must not advance persisted progress before it is shown.
+deck = w.createShuffleOrder(photos, 'family');
+const displayed = deck.take();
+deck.shown(displayed);
+const unshown = deck.take();
+eq(w.createShuffleOrder(photos, 'family').take(), unshown, 'interrupted load remains next after reopen');
+for (const unreadable of [false, true]) {
+  globalThis.localStorage = {
+    getItem: () => { if (unreadable) throw new Error('blocked'); return null; },
+    setItem: () => { throw new Error('quota'); }
+  };
+  deck = w.createShuffleOrder(photos, 'full');
+  const seen = [];
+  for (let i = 0; i < photos.length; i++) {
+    const photo = deck.take();
+    seen.push(photo);
+    deck.shown(photo);
+  }
+  eq(new Set(seen).size, photos.length, 'storage failure preserves the in-memory round');
+}
 process.exit(fail ? 1 : 0);

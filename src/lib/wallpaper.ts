@@ -66,6 +66,46 @@ export function shuffled<T> (list: T[]): T[] {
 	return out;
 }
 
+// One persisted deck per selected folder, consumed only as photos are loaded.
+const SHUFFLE_KEY = 'customlauncher-wallpaper-deck-v1';
+
+export function createShuffleOrder (files: string[], folderId: string) {
+	const id = JSON.stringify([folderId, files]);
+	let remaining: string[] = [];
+	let last = '';
+	try {
+		const saved: unknown = JSON.parse(localStorage.getItem(SHUFFLE_KEY) || 'null');
+		if (saved && typeof saved === 'object' && 'id' in saved && saved.id === id &&
+			'remaining' in saved && Array.isArray(saved.remaining) &&
+			'last' in saved && typeof saved.last === 'string' && files.indexOf(saved.last) >= 0) {
+			const valid = saved.remaining.filter((path): path is string => typeof path === 'string' && files.indexOf(path) >= 0);
+			if (valid.length === saved.remaining.length && new Set(valid).size === valid.length && valid.indexOf(saved.last) < 0) {
+				remaining = valid;
+				last = saved.last;
+			}
+		}
+	} catch { /* unavailable or corrupt storage: start a fresh deck */ }
+	return {
+		take (): string | undefined {
+			if (!remaining.length) {
+				remaining = shuffled(files);
+				if (remaining.length > 1 && remaining[0] === last) {
+					const swap = 1 + Math.floor(Math.random() * (remaining.length - 1));
+					const first = remaining[0];
+					remaining[0] = remaining[swap];
+					remaining[swap] = first;
+				}
+			}
+			return remaining.shift();
+		},
+		shown (path: string) {
+			last = path;
+			try { localStorage.setItem(SHUFFLE_KEY, JSON.stringify({id, remaining, last})); }
+			catch { /* keep the in-memory deck if storage is full */ }
+		}
+	};
+}
+
 // ---------- listing ----------
 
 /** Turns the output of `ls -1p` into entries: folders first, then pictures, each A–Z.
