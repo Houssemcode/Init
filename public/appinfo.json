@@ -1,11 +1,11 @@
 {
   "id": "tld.my.customlauncher",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "vendor": "tld.my.customlauncher",
   "type": "web",
   "main": "index.html",
-  "title": "Home",
-  "appDescription": "Custom home screen: clock, your apps, and a wallpaper or USB slideshow.",
+  "title": "Hearth",
+  "appDescription": "Hearth: a calm home screen with a clock, your apps and inputs, and a wallpaper or USB slideshow.",
   "icon": "icon.png",
   "largeIcon": "largeIcon.png",
   "iconColor": "#050505",
@@ -14,5 +14,6 @@
   "disableBackHistoryAPI": true,
   "transparent": false,
   "splashBackground": "splash.png",
-  "requiredMemory": 20
+  "requiredMemory": 20,
+  "supportGIP": true
 }

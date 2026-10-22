@@ -23,7 +23,12 @@ function classicScriptTag (): Plugin {
 	};
 }
 
+// HEARTH_WEATHER=0 builds without the weather widget (the code is removed from the bundle).
+const env = (globalThis as unknown as {process?: {env: Record<string, string | undefined>}}).process;
+const WEATHER = !(env && env.env.HEARTH_WEATHER === '0');
+
 export default defineConfig({
+	define: {__WEATHER__: JSON.stringify(WEATHER)},
 	base: './',            // the app is loaded from a local file path on the TV
 	plugins: [preact(), classicScriptTag()],
 	build: {

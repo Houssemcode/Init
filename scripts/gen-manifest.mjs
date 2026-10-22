@@ -41,7 +41,7 @@ const manifest = {
 	appDescription: appinfo.appDescription,
 	iconUri: `https://raw.githubusercontent.com/${repo}/main/public/largeIcon.png`,
 	sourceUrl: `https://github.com/${repo}`,
-	rootRequired: false,
+	rootRequired: 'optional',
 	ipkUrl: basename(ipkPath),
 	ipkHash: {sha256: createHash('sha256').update(readFileSync(ipkPath)).digest('hex')}
 };

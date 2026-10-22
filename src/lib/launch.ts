@@ -17,3 +17,14 @@ export function appExists (id: string): Promise<boolean> {
 		.then((r) => r.exist === true)
 		.catch(() => false);
 }
+
+/** Open the TV's own Settings app: the first of its known IDs that exists on this TV. When none can be
+ *  confirmed (the check itself may be refused on some TVs) the most likely ID is launched anyway. */
+export function launchSystemSettings (): Promise<void> {
+	const ids = SYSTEM_APP.systemSettings;
+	const next = (i: number): Promise<void> => {
+		if (i >= ids.length) return launchApp(ids[0]);
+		return appExists(ids[i]).then((found) => (found ? launchApp(ids[i]) : next(i + 1)));
+	};
+	return next(0);
+}

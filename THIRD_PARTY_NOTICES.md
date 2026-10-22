@@ -12,8 +12,12 @@ is **not** covered by that licence.
 |---|---|---|
 | [Preact](https://preactjs.com) | MIT, © Jason Miller | compiled into `assets/app.js`; licence text in [public/licenses/preact-MIT.txt](public/licenses/preact-MIT.txt) |
 | [Inter](https://rsms.me/inter/) typeface | SIL Open Font License 1.1, © The Inter Project Authors | `src/assets/inter-latin-wght.woff2`; licence text in [public/licenses/Inter-OFL.txt](public/licenses/Inter-OFL.txt) |
+| Poppins typeface | SIL Open Font License 1.1, © The Poppins Project Authors | `src/assets/poppins-latin-*.woff2`; licence text in [public/licenses/Poppins-OFL.txt](public/licenses/Poppins-OFL.txt) |
+| Oswald typeface | SIL Open Font License 1.1, © The Oswald Project Authors | `src/assets/oswald-latin-*.woff2`; licence text in [public/licenses/Oswald-OFL.txt](public/licenses/Oswald-OFL.txt) |
+| Roboto Mono typeface | SIL Open Font License 1.1, © The Roboto Mono Project Authors | `src/assets/roboto-mono-latin-*.woff2`; licence text in [public/licenses/RobotoMono-OFL.txt](public/licenses/RobotoMono-OFL.txt) |
+| Cormorant Garamond typeface | SIL Open Font License 1.1, © The Cormorant Garamond Project Authors | `src/assets/cormorant-garamond-latin-*.woff2`; licence text in [public/licenses/CormorantGaramond-OFL.txt](public/licenses/CormorantGaramond-OFL.txt) |
 
-Both licence texts are included in the installed app under `licenses/`.
+The licence texts are included in the installed app under `licenses/`.
 
 ## App and input icons
 

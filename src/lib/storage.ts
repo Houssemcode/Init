@@ -4,20 +4,24 @@
 
 import {STORAGE_KEY, WALLPAPER} from '../config/constants';
 import type {ThemeName} from '../theme/tokens';
+import {CLOCK_FONT_IDS, type ClockFont} from './clockfont';
+import {CLOCK_COLOR_IDS, type ClockColor} from './clockcolor';
+import {validCoords, type City, type TempUnit} from './weather';
 
 export type WallpaperMode = 'gradient' | 'image' | 'folder';
 export type ClockFormat = 'tv' | '12h' | '24h';
-export type ClockColor = 'white' | 'warm' | 'blue' | 'amber';
+export type {ClockColor};
 export type ClockWeight = 200 | 300 | 400;
 
 /** Numeric settings: the values they can take (OK steps through them, ← → nudge them). */
 export const RANGES = {
-	iconScale:    {min: 70,  max: 140, step: 10, def: 100},   // % of the standard tile size
-	sideMargin:   {min: 0,   max: 200, step: 10, def: 50},    // px at 1080p, left and right of the app row
+	iconScale:    {min: 50,  max: 140, step: 10, def: 100},   // % of the standard tile size
+	sideMargin:   {min: 0,   max: 300, step: 10, def: 50},    // px at 1080p, left and right of the app row
 	bottomMargin: {min: 0,   max: 200, step: 10, def: 40},    // px at 1080p, below the app row
 	clockSize:    {min: 80,  max: 220, step: 10, def: 140},   // px, height of the digits
 	clockTop:     {min: 0,   max: 70,  step: 2,  def: 28},    // % of the screen height (0 = the very top)
-	clockLeft:    {min: 0,   max: 100, step: 2,  def: 50}     // % of the screen width (where the clock's centre sits)
+	clockLeft:    {min: 0,   max: 100, step: 2,  def: 50},    // % of the screen width (where the clock's centre sits)
+	clockOpacity: {min: 10,  max: 100, step: 10, def: 100}    // % (how solid the clock, date and weather are)
 } as const;
 
 export type RangeName = keyof typeof RANGES;
@@ -32,14 +36,28 @@ export function rangeValues (name: RangeName): number[] {
 export interface ClockConfig {
 	size: number;
 	weight: ClockWeight;
+	/** the typeface of the time and date */
+	font: ClockFont;
 	/** distance of the clock from the top of the screen, % of the screen height */
 	top: number;
 	/** where the clock's centre sits across the screen, % of the screen width */
 	left: number;
 	color: ClockColor;
+	/** how solid the whole widget is, % */
+	opacity: number;
 	showDate: boolean;
 	/** AM/PM beside the time (12-hour mode only) */
 	showPeriod: boolean;
+}
+
+export interface WeatherConfig {
+	/** show the weather line under the date */
+	on: boolean;
+	city: City | null;
+	unit: TempUnit;
+	showCity: boolean;
+	/** today's high and low */
+	showRange: boolean;
 }
 
 export interface WallpaperConfig {
@@ -54,10 +72,14 @@ export interface WallpaperConfig {
 }
 
 export interface UserConfig {
-	/** ordered app IDs for the app row; null → every app the TV reports, in the TV's order */
+	/** the order the user arranged the apps in (apps not listed follow, in the TV's order); null → the TV's order */
 	appIds: string[] | null;
+	/** apps the user hid; every other app shows. null → settings from an older version, converted when the app list loads */
+	hiddenIds: string[] | null;
 	/** ordered input appIds (com.webos.app.hdmiN) shown after the apps; empty → none */
 	sourceIds: string[];
+	/** the order of the apps and inputs together on the home row (tile keys); null → apps, then inputs */
+	tileOrder: string[] | null;
 	/** read the live app list through the Homebrew Channel (root) */
 	useHomebrew: boolean;
 	/** end LG's own home app when the launcher opens, to free memory */
@@ -68,11 +90,16 @@ export interface UserConfig {
 	hookBoot: boolean;
 	theme: ThemeName;
 	iconScale: number;
+	/** show each app's name under its icon on the home row */
+	showLabels: boolean;
+	/** apps in one row or two */
+	rows: 1 | 2;
 	sideMargin: number;
 	bottomMargin: number;
 	/** 'tv' follows the TV's own 12/24-hour setting */
 	clockFormat: ClockFormat;
 	clock: ClockConfig;
+	weather: WeatherConfig;
 	wallpaper: WallpaperConfig;
 }
 
@@ -83,29 +110,44 @@ export const DEFAULT_WALLPAPER: WallpaperConfig = {
 	shuffle: true
 };
 
+export const DEFAULT_WEATHER: WeatherConfig = {
+	on: false,
+	city: null,
+	unit: 'c',
+	showCity: true,
+	showRange: true
+};
+
 export const DEFAULT_CLOCK: ClockConfig = {
 	size: RANGES.clockSize.def,
 	weight: 200,
+	font: 'inter',
 	top: RANGES.clockTop.def,
 	left: RANGES.clockLeft.def,
 	color: 'white',
+	opacity: RANGES.clockOpacity.def,
 	showDate: true,
 	showPeriod: true
 };
 
 export const DEFAULT_CONFIG: UserConfig = {
 	appIds: null,
+	hiddenIds: [],
 	sourceIds: [],
+	tileOrder: null,
 	useHomebrew: true,
 	closeHome: true,
 	replaceHome: false,
 	hookBoot: true,
 	theme: 'black',
 	iconScale: RANGES.iconScale.def,
+	showLabels: true,
+	rows: 1,
 	sideMargin: RANGES.sideMargin.def,
 	bottomMargin: RANGES.bottomMargin.def,
 	clockFormat: '12h',
 	clock: DEFAULT_CLOCK,
+	weather: DEFAULT_WEATHER,
 	wallpaper: DEFAULT_WALLPAPER
 };
 
@@ -125,32 +167,49 @@ export function loadConfig (): UserConfig {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return {...DEFAULT_CONFIG};
-		const parsed = JSON.parse(raw) as Partial<UserConfig> & {wallpaper?: Partial<WallpaperConfig>; clock?: Partial<ClockConfig>};
+		const parsed = JSON.parse(raw) as Partial<UserConfig> & {wallpaper?: Partial<WallpaperConfig>; clock?: Partial<ClockConfig>; weather?: Partial<WeatherConfig>};
 		const w: Partial<WallpaperConfig> = parsed.wallpaper || {};
 		const c: Partial<ClockConfig> = parsed.clock || {};
+		const wx: Partial<WeatherConfig> = parsed.weather || {};
+		const wc = wx.city as Partial<City> | null | undefined;
+		const city: City | null = wc && typeof wc.name === 'string' && wc.name && validCoords(wc.lat, wc.lon) ? {name: wc.name.slice(0, 60), lat: wc.lat as number, lon: wc.lon as number, detail: typeof wc.detail === 'string' ? wc.detail.slice(0, 80) : undefined} : null;
 		const mode: WallpaperMode = w.mode === 'image' || w.mode === 'folder' ? w.mode : 'gradient';
 		const path = typeof w.path === 'string' ? w.path : '';
 		const interval = typeof w.intervalSec === 'number' && w.intervalSec >= 5 ? w.intervalSec : DEFAULT_WALLPAPER.intervalSec;
 		return {
 			appIds: stringList(parsed.appIds),
+			// older settings listed the apps to SHOW: they are converted once the app list is known
+			hiddenIds: stringList(parsed.hiddenIds) !== null ? stringList(parsed.hiddenIds) : (stringList(parsed.appIds) === null ? [] : null),
 			sourceIds: stringList(parsed.sourceIds) || [],
+			tileOrder: stringList(parsed.tileOrder),
 			useHomebrew: parsed.useHomebrew !== false,
 			closeHome: parsed.closeHome !== false,
 			replaceHome: parsed.replaceHome === true,
 			hookBoot: parsed.hookBoot !== false,
 			theme: parsed.theme === 'grey' ? 'grey' : 'black',
 			iconScale: ranged(parsed.iconScale, 'iconScale'),
+			showLabels: parsed.showLabels !== false,
+			rows: parsed.rows === 2 ? 2 : 1,
 			sideMargin: ranged(parsed.sideMargin, 'sideMargin'),
 			bottomMargin: ranged(parsed.bottomMargin, 'bottomMargin'),
 			clockFormat: parsed.clockFormat === 'tv' || parsed.clockFormat === '24h' ? parsed.clockFormat : '12h',
 			clock: {
 				size: ranged(c.size, 'clockSize'),
 				weight: c.weight === 300 || c.weight === 400 ? c.weight : 200,
+				font: CLOCK_FONT_IDS.indexOf(c.font as ClockFont) !== -1 ? (c.font as ClockFont) : 'inter',
 				top: ranged(c.top, 'clockTop'),
 				left: ranged(c.left, 'clockLeft'),
-				color: c.color === 'warm' || c.color === 'blue' || c.color === 'amber' ? c.color : 'white',
+				color: CLOCK_COLOR_IDS.indexOf(c.color as ClockColor) !== -1 ? (c.color as ClockColor) : 'white',
+				opacity: ranged(c.opacity, 'clockOpacity'),
 				showDate: c.showDate !== false,
 				showPeriod: c.showPeriod !== false
+			},
+			weather: {
+				on: wx.on === true && city !== null,
+				city,
+				unit: wx.unit === 'f' ? 'f' : 'c',
+				showCity: wx.showCity !== false,
+				showRange: wx.showRange !== false
 			},
 			wallpaper: {
 				mode: path ? mode : 'gradient',

@@ -21,7 +21,8 @@ interface Props {
  *  slideshow lists its folder only when it is time for the next picture. The copy is brought
  *  up to date when the launcher goes to the background or this component is removed.
  *
- *  The slideshow pauses while the launcher is in the background. */
+ *  The slideshow pauses while the launcher is in the background. The picture from the copy appears at once
+ *  (no fade); only a change from one slideshow picture to the next cross-fades. */
 export function Wallpaper ({config, onProblem}: Props) {
 	const layerA = useRef<HTMLDivElement>(null);
 	const layerB = useRef<HTMLDivElement>(null);
@@ -44,6 +45,7 @@ export function Wallpaper ({config, onProblem}: Props) {
 		let snapshot: string | null = null;    // screen-sized copy of the picture on screen
 		let unsaved = false;                   // the copy isn't in the cache yet
 		let cacheKnown = false;                // the cache already holds a picture for this choice
+		let shownAt = Date.now();              // when the picture on screen appeared
 
 		const stopTimer = () => { window.clearTimeout(timer); timer = 0; };
 
@@ -71,14 +73,24 @@ export function Wallpaper ({config, onProblem}: Props) {
 			front = -1;
 		};
 
-		const show = (url: string) => {
+		/** `instant`: no fade (the picture is already known, e.g. when the launcher comes back to the front) */
+		const show = (url: string, instant?: boolean) => {
 			const back = front === 0 ? 1 : 0;
 			if (held[back]) release(back);
 			held[back] = url;
-			layers[back].style.backgroundImage = `url("${url}")`;
-			window.requestAnimationFrame(() => layers[back].classList.add('wallpaper__layer--on'));
+			const layer = layers[back];
+			layer.style.backgroundImage = `url("${url}")`;
+			if (instant) {
+				layer.style.transition = 'none';
+				layer.classList.add('wallpaper__layer--on');
+				void layer.offsetWidth;                // apply it now, before the transition is switched back on
+				layer.style.transition = '';
+			} else {
+				window.requestAnimationFrame(() => layer.classList.add('wallpaper__layer--on'));
+			}
 			if (front >= 0) hide(front);
 			front = back;
+			shownAt = Date.now();
 		};
 
 		// A failure keeps whatever picture is already showing (say, the USB drive was unplugged).
@@ -145,7 +157,7 @@ export function Wallpaper ({config, onProblem}: Props) {
 
 			const cached = readWallpaperCache(cacheId);
 			if (cached) {                                          // instant: no shell work at all
-				show(cached);
+				show(cached, true);                                // already known: no fade-in
 				snapshot = cached;
 				unsaved = false;
 				cacheKnown = true;
@@ -168,7 +180,11 @@ export function Wallpaper ({config, onProblem}: Props) {
 			if (config.mode === 'gradient') return;
 			if (document.hidden) { stopTimer(); saveCache(); return; }
 			if (failed) start();                                   // the USB drive may be back
-			else if (config.mode === 'folder') { stopTimer(); timer = window.setTimeout(advance, 1500); }
+			else if (config.mode === 'folder') {
+				// carry on where the interval left off: coming back to the front must not start a fade of its own
+				stopTimer();
+				timer = window.setTimeout(advance, Math.max(1500, config.intervalSec * 1000 - (Date.now() - shownAt)));
+			}
 		};
 
 		start();

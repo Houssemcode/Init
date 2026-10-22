@@ -35,7 +35,7 @@ esac
 LUNA
 chmod +x "$T/luna.sh"
 rm -f "$T/launches" "$T/allow"
-watch () { NO_VERIFY=1 WATCH_STDIN=1 LUNA_SEND="$T/luna.sh" LAUNCH_LOG="$T/launches" ALLOW="$T/allow" LAUNCHER="$T/launcher" LOG="$T/log" sh "$S/watch.sh"; }
+watch () { NO_VERIFY=1 WATCH_STDIN=1 LUNA_SEND="$T/luna.sh" LAUNCH_LOG="$T/launches" ALLOW="$T/allow" MARK="$T/mark" VLOCK="$T/vlock" VFIX="$T/vfix" LAUNCHER="$T/launcher" LOG="$T/log" sh "$S/watch.sh"; }
 launches () { if [ -f "$T/launches" ]; then wc -l < "$T/launches" | tr -d ' '; else echo 0; fi; }
 fresh () { rm -f "$T/launches"; }
 HOME_REPORT='{"returnValue":true,"appId":"com.webos.app.home","processId":"","windowId":""}'
@@ -62,6 +62,28 @@ check "a subscription report with extra fields works too" "$(launches)" "1"
 fresh; printf '%s\n' "TIME 1000" "$LAUNCHER_REPORT" | watch
 check "the launcher reported in front: nothing is opened by that alone" "$(launches)" "0"
 
+# the checks must not start each other (a loop of "asking again" took the screen back from apps being opened)
+checks () { grep -c 'checking that it really showed itself' "$T/log"; }
+: > "$T/log"; rm -f "$T/vfix" "$T/vlock"
+printf '%s\n' "TIME 1000" "$HOME_REPORT" "TIME 1004" "$LAUNCHER_REPORT" | watch
+check "the launcher reported in front just after the watcher opened it: no second check" "$(checks)" "0"
+printf '%s\n' "TIME 1100" "$LAUNCHER_REPORT" | watch
+check "the launcher reported in front on its own (e.g. a black screen at boot): it is checked" "$(checks)" "1"
+echo 1200 > "$T/vfix"
+printf '%s\n' "TIME 1205" "$LAUNCHER_REPORT" | watch
+check "just after a check had to ask again: not checked again (no loop)" "$(checks)" "1"
+printf '%s\n' "TIME 1300" "$LAUNCHER_REPORT" | watch
+check "a while after that: checked again" "$(checks)" "2"
+rm -f "$T/vfix"
+# one check at a time (here the checks run for real, with the TV reporting nothing in front)
+slowwatch () { WATCH_STDIN=1 VERIFY_WAIT=0 FRONT_FILE="$T/nofront" LUNA_SEND="$T/luna.sh" LAUNCH_LOG="$T/launches" ALLOW="$T/allow" MARK="$T/mark" ALIVE="$T/alive" VLOCK="$T/vlock" VFIX="$T/vfix" LAUNCHER="$T/launcher" LOG="$T/log" sh "$S/watch.sh"; }
+echo 2000 > "$T/vlock"
+printf '%s\n' "TIME 2010" "$LAUNCHER_REPORT" | slowwatch; sleep 1
+check "a check started 10 s ago is still running: no second one" "$(cat "$T/vlock" 2>/dev/null)" "2000"
+printf '%s\n' "TIME 2100" "$LAUNCHER_REPORT" | slowwatch; sleep 1
+check "a lock left over from long ago is ignored" "$([ "$(cat "$T/vlock" 2>/dev/null)" != 2000 ] && echo replaced)" "replaced"
+rm -f "$T/vlock"
+
 # the user asked for LG's own Home (the LG Home tile)
 fresh; echo 2000 > "$T/allow"
 printf '%s\n' "TIME 2002" "$HOME_REPORT" | watch
@@ -80,7 +102,7 @@ check "launcher uninstalled: nothing is opened (LG Home stays)" "$(launches)" "0
 mv "$T/launcher/x" "$T/launcher/appinfo.json"
 
 # ---- watch.sh: did the launcher really show itself? ----
-verify () { VERIFY_WAIT=0 WATCH_VERIFY_ONLY=1 LUNA_SEND="$T/luna.sh" LAUNCH_LOG="$T/launches" FRONT_FILE="$T/front" ALLOW="$T/allow" ALIVE="$T/alive" MARK="$T/mark" LAUNCHER="$T/launcher" LOG="$T/log" sh "$S/watch.sh"; }
+verify () { VFIX="$T/vfix" VERIFY_WAIT=0 WATCH_VERIFY_ONLY=1 LUNA_SEND="$T/luna.sh" LAUNCH_LOG="$T/launches" FRONT_FILE="$T/front" ALLOW="$T/allow" ALIVE="$T/alive" MARK="$T/mark" LAUNCHER="$T/launcher" LOG="$T/log" sh "$S/watch.sh"; }
 rm -f "$T/allow"
 fresh; echo "$HOME_REPORT" > "$T/front"; touch -t 203012312359 "$T/alive"
 verify

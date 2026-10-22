@@ -61,3 +61,33 @@ export function setHomeApp (appId: string): Promise<boolean> {
 	if (!isWebOS()) return Promise.resolve(false);
 	return exec(homeSettingCommand(appId), 6000).then((out) => /"returnValue"\s*:\s*true/.test(out)).catch(() => false);
 }
+
+// ---------- the LG logo when the TV starts ----------
+// LG's hidden menu (press Mute repeatedly on an input with no signal) has "Show LG logo when turning on".
+// It is the system setting other.lgLogoDisplay, "on" or "off" (found by watching what the TV changed).
+
+export type LogoState = 'on' | 'off' | 'unsupported';
+
+export const GET_LOGO_COMMAND = `luna-send -n 1 -f luna://com.webos.settingsservice/getSystemSettings '{"category":"other","keys":["lgLogoDisplay"]}'`;
+
+export function setLogoCommand (on: boolean): string {
+	return `luna-send -n 1 -f luna://com.webos.settingsservice/setSystemSettings '{"category":"other","settings":{"lgLogoDisplay":"${on ? 'on' : 'off'}"}}'`;
+}
+
+/** Reads the setting out of getSystemSettings' reply: 'unsupported' when the TV answered but has no such setting, null when the reply isn't an answer. */
+export function parseLogo (output: string): LogoState | null {
+	const value = /"lgLogoDisplay"\s*:\s*"([^"]*)"/.exec(output);
+	if (value) return value[1] === 'off' ? 'off' : value[1] === 'on' ? 'on' : 'unsupported';
+	return /"returnValue"\s*:\s*true/.test(output) ? 'unsupported' : null;
+}
+
+export function getLogo (): Promise<LogoState | null> {
+	if (!isWebOS()) return Promise.resolve(null);
+	return exec(GET_LOGO_COMMAND, 6000).then(parseLogo).catch(() => null);
+}
+
+/** Sets it, then reads it back. Resolves true only when the TV now reports the wanted value. */
+export function setLogo (on: boolean): Promise<boolean> {
+	if (!isWebOS()) return Promise.resolve(false);
+	return exec(setLogoCommand(on), 6000).then(() => getLogo()).then((now) => now === (on ? 'on' : 'off')).catch(() => false);
+}

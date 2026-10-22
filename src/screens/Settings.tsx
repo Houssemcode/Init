@@ -16,6 +16,8 @@ export interface SettingsTab {
 	items: TileModel[];
 	/** what's on the home screen, in home-screen order */
 	shown: TileModel[];
+	/** a "Refresh list" button next to the re-order button */
+	refresh?: boolean;
 	/** present on option tabs (a list of settings instead of a grid of tiles) */
 	options?: OptionItem[];
 }
@@ -26,13 +28,15 @@ interface Props {
 	onToggle: (tabId: string, key: string) => void;
 	onReorder: (tabId: string, keys: string[]) => void;
 	onOption: (optionId: string) => void;
+	/** the "Refresh list" button on the Apps tab */
+	onRefresh?: () => void;
 	/** ← or → on a stepper option: -1 or +1 */
 	onAdjust: (optionId: string, direction: -1 | 1) => void;
 	onClose: () => void;
 }
 
 /** Focus is on the tabs row (a tab, or the re-order button) or in the tab's content. */
-type Zone = 'tabs' | 'button' | 'content';
+type Zone = 'tabs' | 'refresh' | 'button' | 'content';
 
 /** A tile that has been picked up in re-order mode, and the order to restore on Back. */
 interface Held {
@@ -54,7 +58,7 @@ const HINT = {
  *  Grid tabs, select mode: everything available; OK adds/removes an item.
  *  Grid tabs, re-order mode (hold OK, or the button): only what's on the home screen, in order;
  *  OK picks an item up, arrows move it, OK puts it down. Hold OK or press Done to leave. */
-export function Settings ({tabs, active, onToggle, onReorder, onOption, onAdjust, onClose}: Props) {
+export function Settings ({tabs, active, onToggle, onReorder, onOption, onRefresh, onAdjust, onClose}: Props) {
 	const [tabIndex, setTabIndex] = useState(0);
 	const [zone, setZone] = useState<Zone>('tabs');
 	const [gridIndex, setGridIndex] = useState(0);
@@ -67,6 +71,7 @@ export function Settings ({tabs, active, onToggle, onReorder, onOption, onAdjust
 	const options: OptionItem[] = (current && current.options) || [];
 	const onOptions = !!(current && current.options);
 	const tab: SettingsTab | undefined = onOptions ? undefined : current;     // grid tab, if any
+	const hasRefresh = !!(tab && tab.refresh && onRefresh);
 	const items = tab ? (reordering ? tab.shown : tab.items) : [];
 	const count = onOptions ? options.length : items.length;
 	const cols = LAYOUT.gridColumns;
@@ -114,6 +119,7 @@ export function Settings ({tabs, active, onToggle, onReorder, onOption, onAdjust
 	};
 
 	const onPress = () => {
+		if (zone === 'refresh') { if (onRefresh) onRefresh(); return; }
 		if (zone === 'button') { setMode(!reordering); return; }
 		if (zone === 'tabs') { if (count > 0) setZone('content'); return; }
 		if (onOptions) { if (options[optionIndex]) onOption(options[optionIndex].id); return; }
@@ -148,8 +154,14 @@ export function Settings ({tabs, active, onToggle, onReorder, onOption, onAdjust
 			else if (key === 'down' && count > 0) setZone('content');
 			return true;
 		}
+		if (zone === 'refresh') {
+			if (key === 'left') setZone('tabs');
+			else if (key === 'right') setZone('button');
+			else if (key === 'down' && count > 0) setZone('content');
+			return true;
+		}
 		if (zone === 'button') {
-			if (key === 'left' && !reordering) setZone('tabs');
+			if (key === 'left' && !reordering) setZone(hasRefresh ? 'refresh' : 'tabs');
 			else if (key === 'down' && count > 0) setZone('content');
 			return true;
 		}
@@ -174,7 +186,7 @@ export function Settings ({tabs, active, onToggle, onReorder, onOption, onAdjust
 			case 'down': setGridIndex((i) => (i + cols < count ? i + cols : i)); break;
 		}
 		return true;
-	}, [zone, tabIndex, tabCount, gridIndex, optionIndex, count, tab, onOptions, options, reordering, held, items, onReorder, onAdjust, onClose]);
+	}, [zone, tabIndex, tabCount, gridIndex, optionIndex, count, tab, onOptions, options, reordering, held, items, hasRefresh, onReorder, onAdjust, onClose]);
 
 	useKeys(handleKey, active);
 
@@ -197,6 +209,15 @@ export function Settings ({tabs, active, onToggle, onReorder, onOption, onAdjust
 							{label}
 						</div>
 					))}
+					{hasRefresh && !reordering && (
+						<div
+							class={['settings__button', 'settings__button--refresh', zone === 'refresh' && 'settings__button--focused'].join(' ')}
+							onMouseEnter={() => setZone('refresh')}
+							onClick={() => { if (onRefresh) onRefresh(); }}
+						>
+							Refresh list
+						</div>
+					)}
 					{tab && (
 						<div
 							class={buttonClass}

@@ -3,7 +3,7 @@
 // returns the labels set in the TV's input settings and the icon LG's UI uses for
 // each port; we ship copies of those icons.
 
-import {LUNA, SYSTEM_APP} from '../config/constants';
+import {APP_ID, LUNA, SYSTEM_APP} from '../config/constants';
 import {lunaCall, type LunaResponse} from './luna';
 import {appExists} from './launch';
 
@@ -50,12 +50,12 @@ export function listInputs (): Promise<InputSource[]> {
 function listExternalInputs (): Promise<InputSource[]> {
 	return lunaCall<EimResponse>(LUNA.inputStatus, {}).then((r) =>
 		(r.devices || [])
-			.filter((d) => d.appId && d.label)
+			.filter((d) => d.appId && (d.label || d.appId === APP_ID))     // the launcher's own entry may have no label
 			.sort((a, b) => a.port - b.port)
 			.map((d) => ({
 				id: d.id,
 				appId: d.appId,
-				label: d.label,
+				label: d.label || 'Launcher',
 				port: d.port,
 				connected: d.connected !== false,
 				icon: d.icon || FALLBACK_ICON

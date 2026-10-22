@@ -1,6 +1,6 @@
 {
   "name": "custom-launcher",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Custom home screen for LG webOS TVs: clock, apps row, wallpaper and USB slideshow",
   "type": "module",
@@ -11,7 +11,7 @@
     "install:tv": "sh scripts/install.sh",
     "deploy": "npm run build && npm run package && npm run install:tv",
     "manifest": "node scripts/gen-manifest.mjs",
-    "test": "node scripts/test-wallpaper.mjs && node scripts/test-settings.mjs && node scripts/test-appcache.mjs && node scripts/test-closehome.mjs && node scripts/test-homehookcmd.mjs && sh scripts/test-homehook.sh"
+    "test": "node scripts/test-wallpaper.mjs && node scripts/test-settings.mjs && node scripts/test-appcache.mjs && node scripts/test-closehome.mjs && node scripts/test-homehookcmd.mjs && sh scripts/test-homehook.sh && node scripts/test-uninstall.mjs && node scripts/test-rows.mjs && node scripts/test-apporder.mjs && node scripts/test-tileorder.mjs && node scripts/test-tvinput.mjs && node scripts/test-launch.mjs && node scripts/test-weather.mjs && node scripts/test-failure.mjs"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.6",

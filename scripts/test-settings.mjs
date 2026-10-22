@@ -39,6 +39,27 @@ eq(s.loadConfig().theme, 'black', 'corrupt storage falls back to defaults');
 store[KEY] = JSON.stringify({wallpaper: {mode: 'folder', path: ''}});
 eq(s.loadConfig().wallpaper.mode, 'gradient', 'folder mode without a path becomes default background');
 
+store[KEY] = JSON.stringify({tileOrder: ['com.webos.app.hdmi1', 'x', 7]});
+eq(s.loadConfig().tileOrder, ['com.webos.app.hdmi1', 'x'], 'a saved tile order is loaded (bad entries dropped)');
+store[KEY] = JSON.stringify({tileOrder: 'nope'});
+eq(s.loadConfig().tileOrder, null, 'a bad tile order becomes none');
+
+// ---- apps: shown unless hidden ----
+store[KEY] = JSON.stringify({appIds: ['a', 'b']});
+eq(s.loadConfig().hiddenIds, null, 'settings from an older version (a list of apps to show) are flagged to be converted');
+store[KEY] = JSON.stringify({});
+eq(s.loadConfig().hiddenIds, [], 'new settings: nothing hidden');
+store[KEY] = JSON.stringify({appIds: null});
+eq(s.loadConfig().hiddenIds, [], 'older settings that showed every app: nothing hidden');
+store[KEY] = JSON.stringify({appIds: ['a'], hiddenIds: ['x']});
+eq(s.loadConfig().hiddenIds, ['x'], 'a saved hide-list is kept');
+store[KEY] = JSON.stringify({rows: 3, showLabels: false});
+eq([s.loadConfig().rows, s.loadConfig().showLabels], [1, false], 'rows are 1 or 2 only; the app-names switch is read');
+store[KEY] = JSON.stringify({rows: 2});
+eq([s.loadConfig().rows, s.loadConfig().showLabels], [2, true], 'two rows are kept; app names default to shown');
+eq([s.DEFAULT_CONFIG.hiddenIds, s.DEFAULT_CONFIG.rows, s.DEFAULT_CONFIG.showLabels], [[], 1, true], 'defaults: nothing hidden, one row, names shown');
+store[KEY] = '{not json';
+
 // ---- stepping ----
 eq(s.stepValue([1, 2, 3], 3, 1, true), 1, 'OK wraps round');
 eq(s.stepValue([1, 2, 3], 3, 1, false), 3, 'arrow stops at the end');
@@ -50,7 +71,7 @@ const c0 = s.DEFAULT_CONFIG;
 eq(p.applyPref(c0, 'iconScale', 'right').iconScale, 110, 'right arrow: icon size 100 -> 110');
 eq(p.applyPref(c0, 'iconScale', 'left').iconScale, 90, 'left arrow: icon size 100 -> 90');
 eq(p.applyPref({...c0, iconScale: 140}, 'iconScale', 'right').iconScale, 140, 'right arrow stops at the maximum');
-eq(p.applyPref({...c0, iconScale: 140}, 'iconScale', 'ok').iconScale, 70, 'OK wraps to the minimum');
+eq(p.applyPref({...c0, iconScale: 140}, 'iconScale', 'ok').iconScale, 50, 'OK wraps to the minimum (50%)');
 eq(p.applyPref(c0, 'theme', 'ok').theme, 'grey', 'OK flips the theme');
 eq(p.applyPref(c0, 'showDate', 'ok').clock.showDate, false, 'OK flips a switch');
 eq(p.applyPref(c0, 'showDate', 'right') === c0, true, 'arrows leave a switch alone');
@@ -74,13 +95,20 @@ for (const tab of ['look', 'clock', 'wallpaper', 'options']) {
   eq(list.length >= 1 && list.length <= 12, true, `${tab} tab has ${list.length} options (a long list scrolls)`);
 }
 const look = p.optionsFor('look', c0);
-eq(look.map((o) => o.valueText), ['OLED black', '100%', '50 px', '40 px'], 'Look tab shows current values');
+eq(look.map((o) => o.valueText), ['OLED black', '100%', '1 row', undefined, '50 px', '40 px', 'Reset'], 'Look tab shows current values (the app-names switch has no text, it is a switch)');
+eq(p.applyPref(c0, 'rows', 'ok').rows, 2, 'Rows of apps: 1 -> 2');
+eq(p.applyPref(p.applyPref(c0, 'rows', 'ok'), 'rows', 'ok').rows, 1, 'and 2 -> 1');
+eq(p.applyPref(c0, 'showLabels', 'ok').showLabels, false, 'Show app names switches off');
 const optsOn = p.optionsFor('options', c0, {homeApp: 'tld.my.customlauncher'});
 const optsOff = p.optionsFor('options', c0, {homeApp: 'com.webos.app.home'});
 const optsUnknown = p.optionsFor('options', c0, {homeApp: null});
 eq([optsOn, optsOff, optsUnknown].map((o) => o.find((x) => x.id === 'useAsHome').valueText), ['On', 'Off', 'Unknown'], 'home-app row shows On / Off / Unknown');
-eq(p.optionsFor('options', c0).map((o) => o.id).join(','), 'useHomebrew,replaceHome,startAtBoot,useAsHome,closeHome,closeHomeNow,resetLook', 'the Options tab is in the requested order');
-eq(p.optionsFor('options', c0)[1].label, 'Make this launcher the default instead of LG Home', 'the default-home helper has its new name');
+eq(p.optionsFor('options', c0).map((o) => o.id).join(','), 'tvInput,useHomebrew,replaceHome,startAtBoot,lgLogo,closeHome,closeHomeNow,useAsHome', 'the Options tab: TV input, live app list, the helper, the LG logo, and the experimental method last');
+eq(p.optionsFor('options', c0, {homeApp: null, homeHook: null, tvInput: true}).find((o) => o.id === 'tvInput').valueText, 'Added', 'the TV-input row says Added when the launcher is in the input list');
+eq(p.optionsFor('options', c0, {homeApp: null, homeHook: null, tvInput: false}).find((o) => o.id === 'tvInput').valueText, 'Not added', 'and Not added when it is not');
+eq(p.optionsFor('options', c0).find((o) => o.id === 'tvInput').valueText, 'Unknown', 'and Unknown until the TV has been asked');
+eq(c0.tileOrder, null, 'a new config has no saved tile order');
+eq(p.optionsFor('options', c0)[2].label, 'Make this launcher the default instead of LG Home', 'the default-home helper has its new name');
 eq(p.optionsFor('clock', c0).filter((o) => /Clock position/.test(o.label)).map((o) => o.label).join(' | '), 'Clock position (vertical) | Clock position (horizontal)', 'the clock position settings are named vertical and horizontal');
 eq(JSON.stringify([p.applyPref({...c0, clock: {...c0.clock, top: 2}}, 'clockTop', 'left').clock.top, p.applyPref({...c0, clock: {...c0.clock, top: 0}}, 'clockTop', 'left').clock.top]), '[0,0]', 'the clock can go all the way to the top (0%) and stops there');
 eq([p.applyPref({...c0, clock: {...c0.clock, left: 100}}, 'clockLeft', 'right').clock.left, p.applyPref({...c0, clock: {...c0.clock, left: 0}}, 'clockLeft', 'left').clock.left], [100, 0], 'the horizontal position runs from 0% to 100%');
@@ -100,4 +128,36 @@ eq(p.applyPref({...c0, wallpaper: {...c0.wallpaper, intervalSec: 1800}}, 'interv
 eq(p.intervalText(1800), '30 minutes', 'the 30-minute interval reads "30 minutes"');
 eq(p.intervalText(60), '1 minute', 'interval text');
 eq(p.intervalText(3600), '1 hour', 'interval text hour');
+
+// ---- the clock font ----
+eq(d.clock.font, 'inter', 'default clock font is Inter');
+store[KEY] = JSON.stringify({clock: {font: 'oswald'}});
+eq(s.loadConfig().clock.font, 'oswald', 'a saved clock font is loaded');
+store[KEY] = JSON.stringify({clock: {font: 'comic-sans'}});
+eq(s.loadConfig().clock.font, 'inter', 'an unknown clock font falls back to Inter');
+store[KEY] = JSON.stringify({clock: {size: 100}});
+eq(s.loadConfig().clock.font, 'inter', 'settings from an older version (no font) get Inter');
+eq(p.optionsFor('clock', c0).map((o) => o.id).join(','), 'clockFormat,clockSize,clockFont,clockWeight,clockTop,clockLeft,showDate,showPeriod', 'the Clock tab has the font option after the size');
+const fonts = [];
+let cf = c0;
+for (let i = 0; i < 6; i++) { cf = p.applyPref(cf, 'clockFont', 'ok'); fonts.push(cf.clock.font); }
+eq(fonts, ['tv', 'poppins', 'oswald', 'mono', 'serif', 'inter'], 'OK steps through the six fonts and wraps');
+eq([p.applyPref(c0, 'clockFont', 'left').clock.font, p.applyPref(c0, 'clockFont', 'right').clock.font], ['inter', 'tv'], 'right goes to the next font; left stops at the first');
+eq(p.optionsFor('clock', {...c0, clock: {...c0.clock, font: 'mono'}}).filter((o) => o.id === 'clockFont')[0].valueText, 'Roboto Mono (digital)', 'the font option reads its name');
+eq(p.resetLook({...c0, clock: {...c0.clock, font: 'serif'}}).clock.font, 'inter', 'Reset look and clock puts the font back');
+
+
+// widget colour, opacity, ranges, reset row
+const wall = p.optionsFor('wallpaper', c0).map((o) => o.id).join(',');
+eq(wall, 'wallpaper,interval,shuffle,clockColor,clockOpacity', 'the Wallpaper tab ends with the widget colour and opacity');
+eq(p.optionsFor('look', c0).map((o) => o.id).pop(), 'resetLook', 'Reset look and clock is the last row of the Look tab');
+eq(p.applyPref({...c0}, 'clockOpacity', 'right').clock.opacity, 100, 'opacity stops at 100% on the right and the default is solid');
+eq(p.applyPref({...c0, clock: {...c0.clock, opacity: 20}}, 'clockOpacity', 'left').clock.opacity, 10, 'opacity goes down to 10%');
+eq(p.applyPref({...c0, clock: {...c0.clock, opacity: 10}}, 'clockOpacity', 'left').clock.opacity, 10, 'and no lower');
+eq(p.applyPref({...c0, sideMargin: 290}, 'sideMargin', 'right').sideMargin, 300, 'side margin goes up to 300 px');
+const colour = p.applyPref(c0, 'clockColor', 'ok').clock.color;
+eq(colour, 'warm', 'OK steps to the next colour');
+eq(p.optionsFor('wallpaper', {...c0, clock: {...c0.clock, color: 'ocean'}}).find((o) => o.id === 'clockColor').valueText.indexOf('Gradient') === 0, true, 'a gradient shows its name');
+eq(p.resetLook({...c0, clock: {...c0.clock, color: 'black', opacity: 30}}).clock.opacity, 100, 'reset puts the opacity back');
+eq(p.resetLook({...c0, clock: {...c0.clock, color: 'black', opacity: 30}}).clock.color, 'white', 'and the colour');
 process.exit(fail ? 1 : 0);

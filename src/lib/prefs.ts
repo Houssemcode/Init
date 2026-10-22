@@ -6,12 +6,18 @@ import type {OptionItem} from '../components/OptionList';
 import type {ThemeName} from '../theme/tokens';
 import {
 	DEFAULT_CLOCK, INTERVAL_VALUES, RANGES, rangeValues, stepValue,
-	type ClockColor, type ClockFormat, type ClockWeight, type RangeName, type UserConfig
+	type ClockFormat, type ClockWeight, type RangeName, type UserConfig
 } from './storage';
 import {APP_ID} from '../config/constants';
+import {CLOCK_FONT_IDS, fontLabel} from './clockfont';
+import {CLOCK_COLOR_IDS, colorInfo, type ClockColor} from './clockcolor';
 import {baseName} from './wallpaper';
+import {WEATHER_ENABLED} from '../config/features';
+import type {TempUnit} from './weather';
+import {lastFailure, type RootState} from './failure';
+import type {LogoState} from './system';
 
-export type PrefTab = 'look' | 'clock' | 'wallpaper' | 'options';
+export type PrefTab = 'look' | 'clock' | 'weather' | 'wallpaper' | 'options';
 
 /** Facts about the TV (not user settings) that some rows display. */
 export interface SystemInfo {
@@ -19,6 +25,26 @@ export interface SystemInfo {
 	homeApp: string | null;
 	/** the hand-over watcher: running, and whether it starts at boot (null while unknown) */
 	homeHook: {running: boolean; linked: boolean} | null;
+	/** the launcher is in the TV's input list (null while unknown) */
+	tvInput?: boolean | null;
+	/** the TV's "show the LG logo at start" setting (null while unknown) */
+	logo?: LogoState | null;
+	/** can this TV run commands through the Homebrew Channel (rooted)? */
+	root?: RootState;
+	/** what the TV said when it could not (shown under a greyed-out row) */
+	rootDetail?: string;
+}
+
+/** The options that run shell commands, so they can't work without root. */
+export const ROOT_OPTIONS = ['closeHome', 'useHomebrew', 'useAsHome', 'replaceHome', 'startAtBoot', 'tvInput', 'closeHomeNow', 'lgLogo'];
+
+/** Why a row is greyed out, or null when it is usable. */
+export function disabledReason (id: string, info?: SystemInfo): string | null {
+	if (id === 'lgLogo' && info && info.logo === 'unsupported') return "This TV doesn't have a setting for the LG logo at start.";
+	if (!info || info.root !== 'no' || ROOT_OPTIONS.indexOf(id) === -1) return null;
+	const kind = lastFailure();
+	const why = kind === 'denied' ? 'the TV refused the command.' : 'the Homebrew Channel service is not running. If this TV is rooted, open the Homebrew Channel once, then reopen Settings.';
+	return 'Needs a rooted TV: ' + why + (info.rootDetail ? ` (TV said: ${info.rootDetail})` : '');
 }
 
 /** How a key press changes a setting: OK steps and wraps round; ← → nudge and stop at the ends. */
@@ -69,12 +95,11 @@ export function intervalText (seconds: number): string {
 const THEMES: readonly ThemeName[] = ['black', 'grey'];
 const CLOCK_FORMATS: readonly ClockFormat[] = ['12h', '24h', 'tv'];
 const WEIGHTS: readonly ClockWeight[] = [200, 300, 400];
-const COLORS: readonly ClockColor[] = ['white', 'warm', 'blue', 'amber'];
+const UNITS: readonly TempUnit[] = ['c', 'f'];
 
 const THEME_TEXT: Record<ThemeName, string> = {black: 'OLED black', grey: 'Calm blue-grey'};
 const FORMAT_TEXT: Record<ClockFormat, string> = {'12h': '12-hour (AM/PM)', '24h': '24-hour', tv: 'Same as the TV'};
 const WEIGHT_TEXT: Record<ClockWeight, string> = {200: 'Thin', 300: 'Light', 400: 'Regular'};
-const COLOR_TEXT: Record<ClockColor, string> = {white: 'White', warm: 'Warm white', blue: 'Ice blue', amber: 'Amber'};
 
 /** The look, margins and clock back to their defaults (apps, sources and wallpaper are left alone). */
 export function resetLook (c: UserConfig): UserConfig {
@@ -82,6 +107,8 @@ export function resetLook (c: UserConfig): UserConfig {
 		...c,
 		theme: 'black',
 		iconScale: RANGES.iconScale.def,
+		showLabels: true,
+		rows: 1,
 		sideMargin: RANGES.sideMargin.def,
 		bottomMargin: RANGES.bottomMargin.def,
 		clockFormat: '12h',
@@ -89,30 +116,57 @@ export function resetLook (c: UserConfig): UserConfig {
 	};
 }
 
-export const PREFS: Pref[] = [
+/** The Weather tab's rows (left out of builds made without the weather widget). */
+const WEATHER_PREFS: Pref[] = [
+	toggle('weatherOn', 'weather', 'Show the weather', 'The temperature and conditions under the date.',
+		(c) => c.weather.on, (c, v) => ({...c, weather: {...c.weather, on: v && c.weather.city !== null}})),
+	{
+		id: 'weatherCity', tab: 'weather', label: 'City', kind: 'action',
+		description: 'Pick a city from the list, or search for any place by name. Needs an internet connection.',
+		text: (c) => (c.weather.city ? c.weather.city.name : 'Not set')
+	},
+	choice('weatherUnit', 'weather', 'Temperature unit', 'Celsius or Fahrenheit.',
+		UNITS, (c) => c.weather.unit, (c, v) => ({...c, weather: {...c.weather, unit: v}}), (v) => (v === 'f' ? 'Fahrenheit (°F)' : 'Celsius (°C)')),
+	toggle('weatherCityName', 'weather', 'Show the city name', 'The city\'s name before the temperature.',
+		(c) => c.weather.showCity, (c, v) => ({...c, weather: {...c.weather, showCity: v}})),
+	toggle('weatherRange', 'weather', 'Show today\'s high and low', 'For example H 31°  L 25°.',
+		(c) => c.weather.showRange, (c, v) => ({...c, weather: {...c.weather, showRange: v}}))
+];
+
+const BASE_PREFS: Pref[] = [
 	// ----- Look -----
 	choice('theme', 'look', 'Theme', 'OLED black keeps unused pixels off. Calm blue-grey is softer.',
 		THEMES, (c) => c.theme, (c, v) => ({...c, theme: v}), (v) => THEME_TEXT[v]),
 	range('iconScale', 'look', 'Icon size', 'Make the app icons smaller or bigger. ← → adjust.',
 		'iconScale', (c) => c.iconScale, (c, v) => ({...c, iconScale: v}), (v) => `${v}%`),
+	choice('rows', 'look', 'Rows of apps', 'Show the apps in one row, or split over two rows (up/down moves between them).',
+		[1, 2] as const, (c) => c.rows, (c, v) => ({...c, rows: v}), (v) => (v === 1 ? '1 row' : '2 rows')),
+	toggle('showLabels', 'look', 'Show app names', 'The name under each icon on the home row. Switch off for icons only.',
+		(c) => c.showLabels, (c, v) => ({...c, showLabels: v})),
 	range('sideMargin', 'look', 'Side margin', 'Space left and right of the app row. ← → adjust.',
 		'sideMargin', (c) => c.sideMargin, (c, v) => ({...c, sideMargin: v}), (v) => `${v} px`),
 	range('bottomMargin', 'look', 'Bottom margin', 'Space below the app row. ← → adjust.',
 		'bottomMargin', (c) => c.bottomMargin, (c, v) => ({...c, bottomMargin: v}), (v) => `${v} px`),
+
+	{
+		id: 'resetLook', tab: 'look', label: 'Reset look and clock', kind: 'action',
+		description: 'Theme, icon size, margins and clock back to their defaults.',
+		text: () => 'Reset'
+	},
 
 	// ----- Clock -----
 	choice('clockFormat', 'clock', 'Time format', '12-hour, 24-hour, or the same as the TV.',
 		CLOCK_FORMATS, (c) => c.clockFormat, (c, v) => ({...c, clockFormat: v}), (v) => FORMAT_TEXT[v]),
 	range('clockSize', 'clock', 'Clock size', 'How big the time is. ← → adjust.',
 		'clockSize', (c) => c.clock.size, (c, v) => ({...c, clock: {...c.clock, size: v}}), (v) => `${v}`),
+	choice('clockFont', 'clock', 'Clock font', 'The typeface of the time and date. "TV font" is the TV\'s own; the others come with the launcher.',
+		CLOCK_FONT_IDS, (c) => c.clock.font, (c, v) => ({...c, clock: {...c.clock, font: v}}), (v) => fontLabel(v)),
 	choice('clockWeight', 'clock', 'Clock thickness', 'Thin, light or regular digits.',
 		WEIGHTS, (c) => c.clock.weight, (c, v) => ({...c, clock: {...c.clock, weight: v}}), (v) => WEIGHT_TEXT[v]),
 	range('clockTop', 'clock', 'Clock position (vertical)', 'How far down from the top of the screen (0% is the very top). ← → adjust.',
 		'clockTop', (c) => c.clock.top, (c, v) => ({...c, clock: {...c.clock, top: v}}), (v) => `${v}%`),
 	range('clockLeft', 'clock', 'Clock position (horizontal)', 'Move the clock left or right (50% is the centre). ← → adjust.',
 		'clockLeft', (c) => c.clock.left, (c, v) => ({...c, clock: {...c.clock, left: v}}), (v) => `${v}%`),
-	choice('clockColor', 'clock', 'Clock colour', 'The colour of the time and date.',
-		COLORS, (c) => c.clock.color, (c, v) => ({...c, clock: {...c.clock, color: v}}), (v) => COLOR_TEXT[v]),
 	toggle('showDate', 'clock', 'Show the date', 'The day and date under the time.',
 		(c) => c.clock.showDate, (c, v) => ({...c, clock: {...c.clock, showDate: v}})),
 	toggle('showPeriod', 'clock', 'Show AM / PM', 'The small AM or PM beside the time (12-hour only).',
@@ -129,6 +183,10 @@ export const PREFS: Pref[] = [
 		INTERVAL_VALUES, (c) => c.wallpaper.intervalSec, (c, v) => ({...c, wallpaper: {...c.wallpaper, intervalSec: v}}), intervalText),
 	toggle('shuffle', 'wallpaper', 'Shuffle', 'Random order. When off, pictures play A to Z.',
 		(c) => c.wallpaper.shuffle, (c, v) => ({...c, wallpaper: {...c.wallpaper, shuffle: v}})),
+	choice('clockColor', 'wallpaper', 'Widget colour (clock, date, weather)', 'White is hard to read on a light picture. For light wallpapers pick a dark colour or one of the gradients; for dark ones the light colours look best.',
+		CLOCK_COLOR_IDS, (c) => c.clock.color, (c, v) => ({...c, clock: {...c.clock, color: v}}), (v: ClockColor) => colorInfo(v).label),
+	range('clockOpacity', 'wallpaper', 'Widget opacity', 'How solid the clock, date and weather are, from 10% to 100%. Lower it if a dark colour looks too heavy. ← → adjust.',
+		'clockOpacity', (c) => c.clock.opacity, (c, v) => ({...c, clock: {...c.clock, opacity: v}}), (v) => `${v}%`),
 
 	// ----- Options -----
 	toggle('closeHome', 'options', 'Close LG Home when the app opens',
@@ -144,7 +202,7 @@ export const PREFS: Pref[] = [
 	},
 	{
 		id: 'replaceHome', tab: 'options', label: 'Make this launcher the default instead of LG Home', kind: 'action',
-		description: 'Experimental. A small background helper opens this launcher whenever LG Home comes to the front (Home, Back). Nothing is replaced. OK turns it on or off.',
+		description: 'A small background helper opens this launcher whenever LG Home comes to the front (Home, Back). Nothing is replaced. OK turns it on or off.',
 		text: (_c, info) => (!info || !info.homeHook ? 'Unknown' : info.homeHook.running ? 'On' : 'Off')
 	},
 	{
@@ -153,23 +211,30 @@ export const PREFS: Pref[] = [
 		text: (_c, info) => (!info || !info.homeHook ? 'Unknown' : info.homeHook.linked ? 'On' : 'Off')
 	},
 	{
+		id: 'tvInput', tab: 'options', label: 'Add the launcher as a TV input (start the TV on it)', kind: 'action',
+		description: 'Adds this launcher to the TV\'s input list, like HDMI 1. Then set the TV to start on its last input and pick this one: the TV boots straight into the launcher. OK adds or removes it.',
+		text: (_c, info) => (!info || info.tvInput === null || info.tvInput === undefined ? 'Unknown' : info.tvInput ? 'Added' : 'Not added')
+	},
+	{
+		id: 'lgLogo', tab: 'options', label: 'Show the LG logo when the TV starts', kind: 'action',
+		description: 'LG\'s own switch (normally hidden): turn it off for a clean start straight into this launcher. OK turns it on or off.',
+		text: (_c, info) => (!info || info.logo === null || info.logo === undefined || info.logo === 'unsupported' ? 'Unknown' : info.logo === 'on' ? 'On' : 'Off')
+	},
+	{
 		id: 'closeHomeNow', tab: 'options', label: 'Close LG Home now', kind: 'action',
 		description: 'Ends it right away and shows how much memory that freed.',
 		text: () => 'Run'
-	},
-	{
-		id: 'resetLook', tab: 'options', label: 'Reset look and clock', kind: 'action',
-		description: 'Theme, icon size, margins and clock back to their defaults.',
-		text: () => 'Reset'
 	}
 ];
+
+export const PREFS: Pref[] = WEATHER_ENABLED ? BASE_PREFS.concat(WEATHER_PREFS) : BASE_PREFS;
 
 export function findPref (id: string): Pref | undefined {
 	return PREFS.find((p) => p.id === id);
 }
 
 /** The order of the Options tab (anything not listed goes last). */
-const OPTIONS_ORDER = ['useHomebrew', 'replaceHome', 'startAtBoot', 'useAsHome', 'closeHome', 'closeHomeNow', 'resetLook'];
+const OPTIONS_ORDER = ['tvInput', 'useHomebrew', 'replaceHome', 'startAtBoot', 'lgLogo', 'closeHome', 'closeHomeNow', 'useAsHome'];
 
 function orderOf (tab: PrefTab, id: string): number {
 	if (tab !== 'options') return 0;
@@ -183,6 +248,7 @@ export function optionsFor (tab: PrefTab, config: UserConfig, info?: SystemInfo)
 		id: p.id,
 		label: p.label,
 		description: p.description,
+		disabled: disabledReason(p.id, info) || undefined,
 		value: p.kind === 'toggle' && p.on ? p.on(config) : undefined,
 		valueText: p.kind !== 'toggle' && p.text ? p.text(config, info) : undefined,
 		stepper: p.kind === 'choice'

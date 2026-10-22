@@ -7,6 +7,7 @@ import diagnoseSh from '../homehook/diagnose.sh?raw';
 import stockSh from '../homehook/stock.sh?raw';
 import watchSh from '../homehook/watch.sh?raw';
 import {exec} from './apps';
+import {classifyFailure, failureReason} from './failure';
 import {isWebOS} from './luna';
 import {
 	ALIVE_FILE, APPLY_COMMAND, HOOK_VERSION, installSteps, LINK_OFF_COMMAND, LINK_ON_COMMAND, lastLine, parseExit, parseHookResult,
@@ -43,7 +44,7 @@ export function installHomeHook (boot: boolean): Promise<HookOutcome> {
 				if (code !== 0) return {result: 'failed', detail: `${step.name}: ${lastLine(output) || 'exit ' + code}`};
 				return run(i + 1);
 			},
-			(error: Error): HookOutcome => ({result: 'failed', detail: `${step.name}: ${error && error.message ? error.message : 'no answer from the TV'}`})
+			(error: Error): HookOutcome => ({result: 'failed', detail: `${step.name}: ${failureReason(classifyFailure(error), error && error.message ? error.message : '')}`})
 		);
 	};
 	return run(0).then((outcome) => outcome.result === 'applied' ? outcome : removeHomeHook().then(() => outcome));
@@ -52,13 +53,16 @@ export function installHomeHook (boot: boolean): Promise<HookOutcome> {
 export interface Reapplied extends HookOutcome {
 	/** it can't work on this TV (or was removed): turn the setting off */
 	fatal: boolean;
+	/** the Homebrew service did not answer (it is often not up yet just after the TV starts): try again later, change nothing */
+	unreachable?: boolean;
 }
 
 /** Makes sure the watcher is running (after a reboot, or when the launcher opens). If the copy on the TV
  *  is from an older version of the launcher, it is rewritten first, so updating the launcher updates it. */
 export function reapplyHomeHook (boot: boolean): Promise<Reapplied> {
 	if (!isWebOS()) return Promise.resolve({result: 'failed', detail: 'not running on a TV', fatal: false});
-	return exec(VERSION_COMMAND, 6000).then((out) => out.trim(), () => '').then((installed) => {
+	return exec(VERSION_COMMAND, 6000).then((out) => out.trim(), () => null).then((installed): Reapplied | Promise<Reapplied> => {
+		if (installed === null) return {result: 'failed', detail: 'the Homebrew service did not answer', fatal: false, unreachable: true};
 		if (installed !== HOOK_VERSION) {
 			return installHomeHook(boot).then((outcome): Reapplied => ({...outcome, fatal: outcome.result !== 'applied'}));
 		}
@@ -90,17 +94,34 @@ export function removeHomeHook (): Promise<void> {
 	return exec(REMOVE_COMMAND, 10000).then(() => undefined).catch(() => undefined);
 }
 
+const LOG_FILE = '/tmp/launcher-homehook.log';
+
+function cleanForLog (text: string): string {
+	return text.replace(/[^A-Za-z0-9 :._,-]/g, '_');
+}
+
 /** Adds a line to the helper's log, e.g. how long the launcher took to show its first screen. */
 export function logLine (text: string): void {
 	if (!isWebOS()) return;
-	const clean = text.replace(/[^A-Za-z0-9 :._,-]/g, '_');
-	exec(`echo "$(date '+%H:%M:%S') ${clean}" >> /tmp/launcher-homehook.log`, 4000).catch(() => undefined);
+	exec(`echo "$(date '+%H:%M:%S') ${cleanForLog(text)}" >> ${LOG_FILE}`, 4000).catch(() => undefined);
 }
 
 /** Tells the helper this launcher is on screen (it checks for this after opening the launcher). */
 export function markAlive (): void {
 	if (!isWebOS()) return;
 	exec(`touch '${ALIVE_FILE}'`, 4000).catch(() => undefined);
+}
+
+/** markAlive, with an optional line for the log, in ONE call to the TV (each call starts a shell, and the TV is
+ *  busiest just as the launcher comes up). With `repeat`, the TV itself touches the file again 1 and 2 seconds
+ *  later. The helper starts its check when the TV reports the launcher in front, and that report can arrive just
+ *  after the launcher became visible; the later touches make sure the check finds one newer than its start. */
+export function markAliveSoon (note?: string, repeat: boolean = true): void {
+	if (!isWebOS()) return;
+	const parts = [`touch '${ALIVE_FILE}'`];
+	if (note) parts.push(`echo "$(date '+%H:%M:%S') ${cleanForLog(note)}" >> ${LOG_FILE}`);
+	if (repeat) parts.push(`( nohup sh -c "sleep 1; touch '${ALIVE_FILE}'; sleep 1; touch '${ALIVE_FILE}'" >/dev/null 2>&1 </dev/null & )`);
+	exec(parts.join('; '), 4000).catch(() => undefined);
 }
 
 export function hookMessage (result: HookResult, detail = ''): string {

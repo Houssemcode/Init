@@ -9,6 +9,19 @@
 	src: url('../assets/inter-latin-wght.woff2') format('woff2');
 }
 
+/* Fonts for the clock (Look → Clock font). The browser fetches a file only when the clock uses it. */
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 200; font-display: block; src: url('../assets/poppins-latin-200.woff2') format('woff2'); }
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 300; font-display: block; src: url('../assets/poppins-latin-300.woff2') format('woff2'); }
+@font-face { font-family: 'Poppins'; font-style: normal; font-weight: 400; font-display: block; src: url('../assets/poppins-latin-400.woff2') format('woff2'); }
+@font-face { font-family: 'Oswald'; font-style: normal; font-weight: 200; font-display: block; src: url('../assets/oswald-latin-200.woff2') format('woff2'); }
+@font-face { font-family: 'Oswald'; font-style: normal; font-weight: 300; font-display: block; src: url('../assets/oswald-latin-300.woff2') format('woff2'); }
+@font-face { font-family: 'Oswald'; font-style: normal; font-weight: 400; font-display: block; src: url('../assets/oswald-latin-400.woff2') format('woff2'); }
+@font-face { font-family: 'Roboto Mono'; font-style: normal; font-weight: 200; font-display: block; src: url('../assets/roboto-mono-latin-200.woff2') format('woff2'); }
+@font-face { font-family: 'Roboto Mono'; font-style: normal; font-weight: 300; font-display: block; src: url('../assets/roboto-mono-latin-300.woff2') format('woff2'); }
+@font-face { font-family: 'Roboto Mono'; font-style: normal; font-weight: 400; font-display: block; src: url('../assets/roboto-mono-latin-400.woff2') format('woff2'); }
+@font-face { font-family: 'Cormorant Garamond'; font-style: normal; font-weight: 300; font-display: block; src: url('../assets/cormorant-garamond-latin-300.woff2') format('woff2'); }
+@font-face { font-family: 'Cormorant Garamond'; font-style: normal; font-weight: 400; font-display: block; src: url('../assets/cormorant-garamond-latin-400.woff2') format('woff2'); }
+
 * { box-sizing: border-box; }
 
 html, body {
@@ -80,6 +93,21 @@ html, body {
 	transform: translateX(-50%);
 	pointer-events: none;
 }
+.clock--dark .clock__time, .clock--dark .clock__period, .clock--dark .clock__date, .clock--dark .clock__weather { text-shadow: 0 1px 3px rgba(255, 255, 255, 0.35), 0 2px 20px rgba(255, 255, 255, 0.25); }
+/* A gradient fills the letters. Each line gets its own fill (a line with its own opacity cannot be filled from its parent),
+   and the soft shadow becomes a drop shadow (a text shadow would show through the transparent letters). */
+.clock--gradient { filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3)); }
+.clock--gradient .clock__time, .clock--gradient .clock__date {
+	display: table;
+	margin-left: auto; margin-right: auto;
+}
+.clock--gradient .clock__time, .clock--gradient .clock__period, .clock--gradient .clock__date, .clock--gradient .clock__weather > span {
+	background-image: var(--clock-gradient);
+	-webkit-background-clip: text; background-clip: text;
+	-webkit-text-fill-color: transparent; color: transparent;
+	text-shadow: none;
+}
+.clock--gradient .clock__weather-icon { stroke: var(--clock-accent); }
 .clock__time {
 	line-height: 1;
 	text-shadow: 0 2px 6px rgba(0, 0, 0, 0.28), 0 4px 44px rgba(0, 0, 0, 0.5);
@@ -95,6 +123,27 @@ html, body {
 	letter-spacing: 0.02em;
 	opacity: 0.75;
 	text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), 0 2px 24px rgba(0, 0, 0, 0.5);
+}
+
+.clock__weather {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	font-weight: 300;
+	letter-spacing: 0.02em;
+	opacity: 0.75;
+	text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), 0 2px 24px rgba(0, 0, 0, 0.5);
+}
+.clock__weather-icon {
+	flex: 0 0 auto;
+	width: 1.5em; height: 1.5em;
+	margin-right: 0.45em;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.5;
+	stroke-linecap: round;
+	stroke-linejoin: round;
 }
 
 /* ---------- rows ---------- */
@@ -135,6 +184,9 @@ html, body {
 	will-change: transform;
 }
 .row__track--centered { justify-content: center; }
+/* Left/right held down: each step is short and linear, so the steps run together into one smooth glide
+   (an ease-out curve restarting on every key repeat looks like stuttering). */
+.row__track--fast { transition: transform 150ms linear; }
 
 .row__empty {
 	font-size: var(--font-tile-label);
@@ -153,23 +205,41 @@ html, body {
 }
 .tile:last-child { margin-right: 0; }
 
-.tile__box {
+/* The frame is what grows when a tile is focused; the ring is the white border, shown by fading it in.
+   Only transform and opacity change, which the TV can animate without repainting the tile (animating
+   box-shadow and background was what made scrolling stutter). */
+.tile__frame {
 	position: relative;
 	width: var(--layout-tile-size);
 	height: var(--layout-tile-size);
+	transform: scale(1);
+	transition: transform var(--motion-focus-ms) ease-out;
+}
+.tile--focused .tile__frame {
+	transform: scale(var(--motion-focus-scale));
+	z-index: 1;
+}
+.tile__box {
+	position: relative;
+	width: 100%;
+	height: 100%;
 	border-radius: var(--layout-tile-radius);
 	background: var(--color-tile-bg);
 	box-shadow: 0 0 0 2px var(--color-tile-border);
 	overflow: hidden;
-	transform: scale(1);
-	transition: transform var(--motion-focus-ms) ease-out, box-shadow var(--motion-focus-ms) ease-out, background var(--motion-focus-ms) ease-out;
 }
-.tile--focused .tile__box {
-	transform: scale(var(--motion-focus-scale));
-	background: var(--color-tile-bg-focus);
+.tile--focused .tile__box { background: var(--color-tile-bg-focus); }
+.tile__ring {
+	position: absolute;
+	left: 0; top: 0;
+	width: 100%; height: 100%;
+	border-radius: var(--layout-tile-radius);
 	box-shadow: 0 0 0 5px var(--color-tile-border-focus);
-	z-index: 1;
+	opacity: 0;
+	transition: opacity var(--motion-focus-ms) ease-out;
+	pointer-events: none;
 }
+.tile--focused .tile__ring { opacity: 1; }
 
 .tile__image {
 	position: absolute;
@@ -287,6 +357,8 @@ html, body {
 	transform: scale(1);
 	transition: transform var(--motion-focus-ms) ease-out, box-shadow var(--motion-focus-ms) ease-out, background var(--motion-focus-ms) ease-out, color var(--motion-focus-ms) ease-out;
 }
+.settings__button--refresh { margin-left: auto; margin-right: 20px; }
+.settings__button--refresh + .settings__button { margin-left: 0; }
 .settings__button--focused {
 	color: var(--color-text-primary);
 	box-shadow: 0 0 0 4px var(--color-tile-border-focus);
@@ -317,18 +389,31 @@ html, body {
 .tile--dimmed .tile__box { opacity: 0.45; }
 
 /* re-order mode: the picked-up tile floats above the others */
-.tile--lifted .tile__box,
-.tile--lifted.tile--focused .tile__box {
+.tile--lifted .tile__frame,
+.tile--lifted.tile--focused .tile__frame {
 	transform: scale(var(--motion-lift-scale)) translateY(-6px);
-	box-shadow: 0 0 0 5px var(--color-tile-border-focus), 0 18px 40px var(--color-lift-shadow);
 	z-index: 2;
+}
+.tile--lifted .tile__ring {
+	opacity: 1;
+	box-shadow: 0 0 0 5px var(--color-tile-border-focus), 0 18px 40px var(--color-lift-shadow);
 }
 .tile--lifted .tile__label { color: var(--color-text-primary); }
 .tile--dimmed .tile__label { color: var(--color-text-muted); }
+/* two rows of apps: both stay fully visible, with a little space between */
+.rows--multi .row__viewport { opacity: 1; }
+.rows--multi .row + .row { margin-top: 14px; }
+/* Look → Show app names: off */
+.rows--no-labels .tile__label { display: none; }
 
 /* ---------- options ---------- */
 
-.options { width: 1100px; padding-top: 8px; }
+.options { width: 1116px; margin-left: -8px; overflow: hidden; }     /* a window: the height is set from the real screen size (OptionList) */
+.options__track {
+	position: relative;
+	padding: 8px 8px;         /* room for a focused row's border, so the window does not clip it */
+	transition: transform var(--motion-scroll-ms) cubic-bezier(0.2, 0.7, 0.2, 1);
+}
 
 .option {
 	display: flex;
@@ -347,6 +432,8 @@ html, body {
 }
 .option__text { flex: 1 1 auto; margin-right: 40px; }
 .option__label { font-size: var(--font-option-label); color: var(--color-text-primary); }
+.option--disabled .option__label, .option--disabled .option__value, .option--disabled .switch { opacity: 0.4; }
+.option__description--reason { color: var(--color-text-secondary); font-style: italic; }
 .option__description { margin-top: 8px; font-size: var(--font-option-description); line-height: 1.4; color: var(--color-text-secondary); }
 
 .switch {
@@ -437,6 +524,47 @@ html, body {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+/* ---------- the menu that opens when OK is held on an app ---------- */
+
+.screen--dialog { background: rgba(0, 0, 0, 0.72); }
+.dialog {
+	position: absolute;
+	left: 50%; top: 50%;
+	width: 900px;
+	padding: 40px 44px 32px;
+	transform: translate(-50%, -50%);
+	border-radius: 28px;
+	background: var(--color-picker-bg);
+	box-shadow: 0 0 0 2px var(--color-tile-border), 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+.dialog__title {
+	margin: 0 0 8px;
+	font-size: var(--font-settings-title);
+	font-weight: 300;
+	color: var(--color-text-primary);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.dialog__text { margin: 0 0 22px; font-size: var(--font-option-description); color: var(--color-text-secondary); }
+.dialog .picker__row { margin-top: 8px; margin-bottom: 0; }
+.picker__row--disabled { opacity: 0.5; }
+
+.picker__input {
+	display: block;
+	width: 100%;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	outline: none;
+	background: transparent;
+	color: var(--color-text-primary);
+	font-family: inherit;
+	font-size: var(--font-option-label);
+	-webkit-user-select: text;
+	user-select: text;
 }
 
 /* ---------- toast ---------- */

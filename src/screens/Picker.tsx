@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'preact/hooks';
 import {PickerIcon} from '../components/Glyph';
+import {failureText, whySuffix} from '../lib/failure';
 import {useKeys, clamp, type NavKey} from '../hooks/useKeys';
 import {
 	baseName, INTERNAL_ROOT, joinPath, listDir, listRoots, parentPath,
@@ -17,7 +18,7 @@ interface Props {
 	onClose: () => void;
 }
 
-type RowKind = 'gradient' | 'root' | 'folder' | 'picture' | 'slideshow' | 'info';
+type RowKind = 'gradient' | 'root' | 'folder' | 'picture' | 'slideshow' | 'info' | 'retry';
 
 interface PickerRow {
 	key: string;
@@ -43,7 +44,12 @@ function pictureCount (entries: DirEntry[]): number {
 	return entries.filter((e) => !e.isDir).length;
 }
 
-function buildRows (path: string | null, roots: StorageRoot[], entries: DirEntry[]): PickerRow[] {
+function buildRows (path: string | null, roots: StorageRoot[], entries: DirEntry[], failed: boolean): PickerRow[] {
+	if (failed) {
+		const rows: PickerRow[] = [{key: 'retry', kind: 'retry', label: 'Try again', detail: 'Read the storage again'}];
+		if (path === null) rows.unshift({key: 'gradient', kind: 'gradient', label: 'Default background', detail: 'Plain black, or the calm gradient, as set by the theme'});
+		return rows;
+	}
 	if (path === null) {
 		const rows: PickerRow[] = [{key: 'gradient', kind: 'gradient', label: 'Default background', detail: 'Plain black, or the calm gradient, as set by the theme'}];
 		roots.forEach((r) => rows.push({key: `root:${r.path}`, kind: 'root', label: r.label, detail: r.path, path: r.path}));
@@ -80,9 +86,10 @@ export function Picker ({onChoose, onClose}: Props) {
 	const [index, setIndex] = useState(0);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
+	const [attempt, setAttempt] = useState(0);
 	const remembered = useRef<Record<string, number>>({});
 
-	const rows = buildRows(path, roots, entries);
+	const rows = buildRows(path, roots, entries, !loading && error !== '');
 	const pathKey = path === null ? '' : path;
 
 	// Roots load once; a folder's contents load whenever the path changes.
@@ -93,18 +100,18 @@ export function Picker ({onChoose, onClose}: Props) {
 			setError('');
 			listRoots().then(
 				(r) => { if (!cancelled) { setRoots(r); setLoading(false); } },
-				() => { if (!cancelled) { setRoots([]); setError("Can't read the storage. Browsing needs the Homebrew Channel service (rooted TV)."); setLoading(false); } }
+				(e) => { if (!cancelled) { setRoots([]); setError(failureText(e, 'read the storage')); setLoading(false); } }
 			);
 		} else {
 			setLoading(true);
 			setError('');
 			listDir(path).then(
 				(list) => { if (!cancelled) { setEntries(list); setLoading(false); } },
-				() => { if (!cancelled) { setEntries([]); setError("Couldn't read this folder"); setLoading(false); } }
+				() => { if (!cancelled) { setEntries([]); setError(`Couldn't read this folder${whySuffix() || ''}`); setLoading(false); } }
 			);
 		}
 		return () => { cancelled = true; };
-	}, [path]);
+	}, [path, attempt]);
 
 	const goTo = (next: string | null, restoreIndex: number) => {
 		remembered.current[pathKey] = index;
@@ -129,6 +136,7 @@ export function Picker ({onChoose, onClose}: Props) {
 		if (!row || loading) return;
 		switch (row.kind) {
 			case 'gradient': onChoose({mode: 'gradient'}); break;
+			case 'retry': setIndex(0); setAttempt((n) => n + 1); break;
 			case 'root':
 			case 'folder': if (row.path) goTo(row.path, 0); break;
 			case 'picture': if (row.path) onChoose({mode: 'image', path: row.path}); break;
@@ -152,7 +160,7 @@ export function Picker ({onChoose, onClose}: Props) {
 
 	const start = clamp(index - Math.floor(VISIBLE_ROWS / 2), 0, Math.max(0, rows.length - VISIBLE_ROWS));
 	const visible = rows.slice(start, start + VISIBLE_ROWS);
-	const iconFor = (row: PickerRow) => row.kind === 'gradient' ? 'default' : row.kind === 'root' ? (row.path === INTERNAL_ROOT.path ? 'folder' : 'drive') : row.kind;
+	const iconFor = (row: PickerRow) => row.kind === 'gradient' ? 'default' : row.kind === 'retry' ? 'info' : row.kind === 'root' ? (row.path === INTERNAL_ROOT.path ? 'folder' : 'drive') : row.kind;
 
 	return (
 		<div class="screen screen--picker">
@@ -163,7 +171,7 @@ export function Picker ({onChoose, onClose}: Props) {
 				<div class="picker">
 					{loading && <div class="picker__status">Loading…</div>}
 					{!loading && error && <div class="picker__status picker__status--error">{error}</div>}
-					{!loading && !error && visible.map((row, n) => {
+					{!loading && visible.map((row, n) => {
 						const i = start + n;
 						return (
 							<div

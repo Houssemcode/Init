@@ -19,6 +19,8 @@ LOG="${LOG:-/tmp/launcher-homehook.log}"
 ALLOW="${ALLOW:-/tmp/launcher-allow-stock-home}"     # exists while the user asked for LG's own Home
 ALIVE="${ALIVE:-/tmp/launcher-alive}"                # touched by the launcher whenever it becomes visible
 MARK="${MARK:-/tmp/launcher-launch-mark}"            # touched when the launcher is asked for
+VLOCK="${VLOCK:-/tmp/launcher-verify-lock}"          # holds the time a check started: only one check runs at a time
+VFIX="${VFIX:-/tmp/launcher-verify-fix}"             # holds the time a check last had to ask for the launcher again
 FRONT_URI="luna://com.webos.applicationManager/getForegroundAppInfo"
 HOME_PATTERN='*"appId":"com.webos.app.home"*'
 LAUNCHER_PATTERN="*\"appId\":\"$LAUNCHER_ID\"*"
@@ -32,7 +34,7 @@ open_launcher () {
 # After the launcher was asked for: wait, and if it has not shown itself (or LG Home is still
 # in front) ask again, up to three times. Runs in the background.
 verify () {
-    touch "$MARK"
+    [ -f "$MARK" ] || touch "$MARK"
     tries=0
     while [ "$tries" -lt 3 ]; do
         sleep "${VERIFY_WAIT:-3}"
@@ -43,16 +45,39 @@ verify () {
             $HOME_PATTERN|$LAUNCHER_PATTERN) ;;                  # nothing showing yet: ask again
             *) return ;;                                         # another app is in front: done
         esac
-        log "the launcher has not shown itself: opening it again"
+        tries=$((tries + 1))
+        case "$front" in
+            $HOME_PATTERN) where="LG Home" ;;
+            *) where="the launcher" ;;
+        esac
+        log "the launcher has not shown itself ($where is in front): opening it again (try $tries of 3)"
+        echo "${FAKE_NOW:-$(date +%s)}" > "$VFIX"
         open_launcher
         touch "$MARK"
-        tries=$((tries + 1))
     done
 }
 
+# Runs a check in the background, unless one is already running. (Every report that the launcher is in
+# front used to start its own check; with several at once, each could ask for the launcher again and
+# take the screen back from an app that was just being opened, over and over.) A lock older than 30 s
+# is taken to be left over.
 start_verify () {
     [ -n "$NO_VERIFY" ] && return
-    ( verify >/dev/null 2>&1 & )
+    now="${FAKE_NOW:-$(date +%s)}"
+    if [ -f "$VLOCK" ]; then
+        began=$(cat "$VLOCK" 2>/dev/null); began="${began:-0}"
+        [ $((now - began)) -lt 30 ] && return
+    fi
+    echo "$now" > "$VLOCK"
+    ( ( verify; rm -f "$VLOCK" ) >/dev/null 2>&1 & )
+}
+
+# True when a check had to ask for the launcher again less than 15 s ago.
+recently_fixed () {
+    now="${FAKE_NOW:-$(date +%s)}"
+    [ -f "$VFIX" ] || return 1
+    at=$(cat "$VFIX" 2>/dev/null); at="${at:-0}"
+    [ $((now - at)) -lt 15 ]
 }
 
 # One report from the TV about the app in front. The launch comes first (no commands are run
@@ -77,13 +102,21 @@ handle () {
             open_launcher
             last_launch="${FAKE_NOW:-$(date +%s)}"
             log "LG Home is in front: opened the launcher"
+            touch "$MARK"                             # a check that is already running waits for this opening
             start_verify
             ;;
         $LAUNCHER_PATTERN)
             # The TV says the launcher is in front. Make sure it is really there (the TV can report
-            # an app in front when its process has been closed, which is a black screen).
+            # an app in front when its process has been closed, which is a black screen). Not right
+            # after the watcher itself opened the launcher or asked for it again: that opening is
+            # already being checked, and checking again could take the screen back from an app.
             was_home=0
-            start_verify
+            now="${FAKE_NOW:-$(date +%s)}"
+            if [ $((now - last_launch)) -ge 15 ] && ! recently_fixed; then
+                log "the launcher is in front: checking that it really showed itself"
+                touch "$MARK"
+                start_verify
+            fi
             ;;
         *)
             was_home=0
@@ -122,6 +155,7 @@ if [ -f "$PIDFILE" ]; then
     fi
 fi
 echo $$ > "$PIDFILE"
+rm -f "$VLOCK" "$VFIX"
 # (a stop request is only noticed when the current command ends, so the launcher stops the watcher with kill -9 instead)
 trap 'pkill -P $$ 2>/dev/null; [ "$(cat "$PIDFILE" 2>/dev/null)" = "$$" ] && rm -f "$PIDFILE"; exit 0' TERM INT
 log "started (pid $$)"

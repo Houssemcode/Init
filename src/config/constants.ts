@@ -5,6 +5,8 @@ export const APP_ID = 'tld.my.customlauncher';
 /** webOS app IDs the launcher itself needs. */
 export const SYSTEM_APP = {
 	lgHome: 'com.webos.app.home',
+	/** the TV's own Settings app (LG Home's gear opens it); the first that exists on the TV is used */
+	systemSettings: ['com.palm.app.settings', 'com.webos.app.settings'],
 	liveTv: 'com.webos.app.livetv',
 	homebrewChannel: 'org.webosbrew.hbchannel'
 } as const;
@@ -32,7 +34,10 @@ export const TIMING = {
 	lunaTimeoutMs: 4000,
 	toastMs: 2200,
 	clockTickMs: 1000,
-	longPressMs: 600        // OK held this long enters/leaves re-order mode
+	longPressMs: 600,       // OK held this long enters/leaves re-order mode
+	/** Everything that is not needed to show the home screen (re-reading the app list, the helper check,
+	 *  closing LG Home) waits this long after the launcher appears, so the screen comes up first. */
+	backgroundWorkMs: 5000
 } as const;
 
 /** localStorage key for the user's selections. Bump the suffix on breaking changes. */
@@ -40,6 +45,7 @@ export const STORAGE_KEY = 'customlauncher-config-v1';
 
 /** Wallpaper / slideshow settings. */
 export const WALLPAPER = {
+	releaseAfterMs: 30000,        // the launcher keeps its wallpaper this long after going to the background, so Home shows it at once
 	fadeMs: 1400,                 // cross-fade between pictures (keep in sync with global.css)
 	maxPixels: 25000000,          // pictures larger than this are skipped (too heavy for the TV)
 	probeTimeoutMs: 15000,
