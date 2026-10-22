@@ -2,7 +2,7 @@
 
 # Hearth: a fast, calm home screen for LG webOS TVs
 
-Hearth replaces the busy LG home screen with something quiet and quick: a **clock with the date and the weather**, **your apps and TV inputs in one row**
+Hearth replaces the busy LG home screen with something quiet and quick: a **clock with the date and the weather**, **your apps and TV inputs in one or two rows**
 along the bottom, and a background that is plain **OLED black**, a **picture**, or a **slideshow from a USB drive**. It starts almost instantly, scrolls smoothly,
 and everything is adjustable from the remote.
 
