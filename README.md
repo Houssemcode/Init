@@ -189,4 +189,4 @@ To publish a new release and keep Homebrew Channel updates working, see [docs/PU
 - The weather code is behind a build switch: `HEARTH_WEATHER=0 npm run build` leaves it out entirely.
 - `src/lib/wallpaper.ts` lists folders with `ls -1p` and reads pictures with `dd | base64` through the Homebrew Channel service; `src/components/Wallpaper.tsx` cross-fades two layers.
 - `tools/watch-tv-settings.sh` is a read-only helper for finding which TV setting a menu switch changes (it is how the LG logo setting was found).
-- `scripts/gen-repo.mjs` writes `repo/apps.json`, the file the Homebrew Channel reads (see the publishing guide).
+- `scripts/gen-repo.mjs` writes `repo/apps.json`, the file the Homebrew Channel reads.
