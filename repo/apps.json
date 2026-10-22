@@ -11,6 +11,7 @@
       "title": "Hearth",
       "iconUri": "https://raw.githubusercontent.com/rudra-avatar/webos-custom-launcher/main/public/largeIcon.png",
       "shortDescription": "Fast, calm home screen: clock, weather, apps, inputs, wallpaper.",
+      "fullDescriptionUrl": "https://raw.githubusercontent.com/rudra-avatar/webos-custom-launcher/main/repo/description.html",
       "manifest": {
         "id": "tld.my.customlauncher",
         "version": "1.1.0",

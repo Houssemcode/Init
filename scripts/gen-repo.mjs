@@ -51,6 +51,8 @@ const file = {
 		title: appinfo.title,
 		iconUri: manifest.iconUri,
 		shortDescription: 'Fast, calm home screen: clock, weather, apps, inputs, wallpaper.',
+		// the longer text shown on the app's page in the Homebrew Channel (repo/description.html, simple HTML)
+		fullDescriptionUrl: `${raw}/repo/description.html`,
 		manifest
 	}]
 };
