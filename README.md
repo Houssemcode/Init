@@ -44,8 +44,7 @@ It is a normal webOS app (app ID `tld.my.customlauncher`). On a rooted TV it can
 
 | | |
 |---|---|
-| Lowest tested | LG firmware **03.01.16** (reported as **webOS 8.0.0**), by a user of this launcher |
-| Also reported | webOS 6.x (a Settings display bug found there was fixed in 1.1.0) and the webOS 4.x TV it was first built on |
+| Lowest tested | LG firmware **03.01.16** (**webOS 7.0.0**), by users of this launcher |
 | Newer versions | **Should work.** Hearth is compiled for old web views (Chrome 53) and uses only standard web features and TV services that LG keeps across versions, so newer webOS should be fine, but I have not tried every version. Please report anything odd |
 
 ### Rooted TV with the Homebrew Channel: everything
@@ -129,6 +128,14 @@ the last-resort attempts skip the certificate check, which is acceptable for pub
 
 ## Opening Hearth instead of LG Home (rooted TVs)
 
+**Settings → Options → Add the launcher as TV input** adds **Hearth** to the TV's input list, next to HDMI 1 and Live TV. Choose it, set the TV to start on its last input,
+  and the TV boots into Hearth.
+
+```
+luna-send-pub -n 1 'luna://com.webos.service.eim/addDevice' '{"appId":"tld.my.customlauncher","pigImage":"","mvpdIcon":"","label":"Hearth","description":"Hearth home screen"}'
+```
+(To remove the input, use the same command with deleteDevice instead of addDevice.)
+  
 **Settings → Options → Make this launcher the default instead of LG Home** starts a small background helper that watches which app the TV reports as being in front. When that becomes LG Home
 (Home, leaving an app with Back, boot) it opens Hearth instead. **Nothing is replaced or mounted.**
 
