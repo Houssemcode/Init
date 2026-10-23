@@ -2,7 +2,7 @@ import {useEffect, useRef} from 'preact/hooks';
 import {WALLPAPER} from '../config/constants';
 import type {WallpaperConfig} from '../lib/storage';
 import {
-	clearWallpaperCache, listImages, loadPicture, readWallpaperCache, releasePicture, shuffled,
+	clearWallpaperCache, listImages, loadPicture, readWallpaperCache, releasePicture, createShuffleOrder,
 	wallpaperCacheId, writeWallpaperCache
 } from '../lib/wallpaper';
 
@@ -41,6 +41,7 @@ export function Wallpaper ({config, onProblem}: Props) {
 		let timer = 0;
 		let files: string[] = [];
 		let position = -1;
+		let order: ReturnType<typeof createShuffleOrder> | null = null;
 		let lastError = '';
 		let snapshot: string | null = null;    // screen-sized copy of the picture on screen
 		let unsaved = false;                   // the copy isn't in the cache yet
@@ -107,7 +108,8 @@ export function Wallpaper ({config, onProblem}: Props) {
 				(list) => {
 					if (disposed) return;
 					if (!list.length) { fail('No pictures found in that folder'); return; }
-					files = config.shuffle ? shuffled(list) : list;
+					files = list;
+					order = config.shuffle ? createShuffleOrder(files, cacheId) : null;
 					if (files.length === 1) return;          // a one-picture folder: nothing to rotate
 					next(0);
 				},
@@ -126,11 +128,14 @@ export function Wallpaper ({config, onProblem}: Props) {
 			if (attempt >= files.length) { fail(lastError || "Couldn't show any picture from that location"); return; }
 			busy = true;
 			position = (position + 1) % files.length;
-			loadPicture(files[position]).then(
+			const path = order ? order.take() : files[position];
+			if (!path) { fail('No pictures found in that folder'); return; }
+			loadPicture(path).then(
 				(loaded) => {
 					busy = false;
 					if (disposed) { releasePicture(loaded.url); return; }
 					failed = false;
+					if (order) order.shown(path);
 					show(loaded.url);
 					snapshot = loaded.snapshot;
 					unsaved = !!loaded.snapshot;
@@ -153,6 +158,7 @@ export function Wallpaper ({config, onProblem}: Props) {
 			position = -1;
 			lastError = '';
 			files = [];
+			order = null;
 			if (config.mode === 'gradient' || !config.path) { clearWallpaperCache(); hideAll(); return; }
 
 			const cached = readWallpaperCache(cacheId);
@@ -161,7 +167,10 @@ export function Wallpaper ({config, onProblem}: Props) {
 				snapshot = cached;
 				unsaved = false;
 				cacheKnown = true;
-				if (config.mode === 'folder') schedule();
+				if (config.mode === 'folder') {
+					if (config.shuffle) advance();
+					else schedule();
+				}
 				return;
 			}
 			if (config.mode === 'image') { files = [config.path]; next(0); return; }
@@ -169,7 +178,8 @@ export function Wallpaper ({config, onProblem}: Props) {
 				(list) => {
 					if (disposed) return;
 					if (!list.length) { fail('No pictures found in that folder'); return; }
-					files = config.shuffle ? shuffled(list) : list;
+					files = list;
+					order = config.shuffle ? createShuffleOrder(files, cacheId) : null;
 					next(0);
 				},
 				() => { if (!disposed) fail("Couldn't read the wallpaper folder. Is the USB drive still plugged in?"); }
