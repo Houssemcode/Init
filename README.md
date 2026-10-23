@@ -12,7 +12,7 @@ It is a normal webOS app (app ID `tld.my.customlauncher`). On a rooted TV it can
 
 | | |
 |---|---|
-| ![Sunset wallpaper](docs/screenshots/home-sunset.jpg) | ![Ocean wallpaper, centred clock](docs/screenshots/home-ocean.jpg) |
+| ![Ocean wallpaper, two rows](docs/screenshots/home-ocean.jpg) | ![Sunset wallpaper](docs/screenshots/home-sunset.jpg) |
 | ![A different clock font](docs/screenshots/home-aurora.jpg) | ![Hold OK on an app for its menu](docs/screenshots/app-menu.jpg) |
 
 ## What it does
