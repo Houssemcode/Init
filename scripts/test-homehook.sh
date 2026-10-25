@@ -40,7 +40,7 @@ launches () { if [ -f "$T/launches" ]; then wc -l < "$T/launches" | tr -d ' '; e
 fresh () { rm -f "$T/launches"; }
 HOME_REPORT='{"returnValue":true,"appId":"com.webos.app.home","processId":"","windowId":""}'
 APP_REPORT='{"returnValue":true,"appId":"youtube.leanback.v4","processId":"123","windowId":"4"}'
-LAUNCHER_REPORT='{"returnValue":true,"appId":"tld.my.customlauncher","processId":"","windowId":""}'
+LAUNCHER_REPORT='{"returnValue":true,"appId":"dev.init.tv","processId":"","windowId":""}'
 SUB_HOME='{"returnValue":true,"subscribed":true,"appId":"com.webos.app.home","processId":"","windowId":""}'
 
 fresh; printf '%s\n' "TIME 1000" "$APP_REPORT" | watch
@@ -49,7 +49,7 @@ fresh; printf '%s\n' "TIME 1000" '{"returnValue":true,"subscribed":true}' | watc
 check "a report without an app is ignored" "$(launches)" "0"
 fresh; printf '%s\n' "TIME 1000" "$HOME_REPORT" | watch
 check "LG Home in front: the launcher is opened" "$(launches)" "1"
-check "and it is the launcher that is opened" "$(grep -c 'tld.my.customlauncher' "$T/launches")" "1"
+check "and it is the launcher that is opened" "$(grep -c 'dev.init.tv' "$T/launches")" "1"
 check "and the log says so, after the launch" "$(grep -c 'opened the launcher' "$T/log")" "1"
 fresh; printf '%s\n' "TIME 1000" "$HOME_REPORT" "$HOME_REPORT" "$HOME_REPORT" | watch
 check "LG Home reported again at once: not opened again" "$(launches)" "1"

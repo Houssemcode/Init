@@ -27,7 +27,7 @@ export interface WeatherData {
 	at: number;
 }
 
-export const WEATHER_CACHE_KEY = 'customlauncher-weather-v1';
+export const WEATHER_CACHE_KEY = 'initlauncher-weather-v1';
 /** A reading younger than this is not fetched again. */
 export const FRESH_MS = 30 * 60 * 1000;
 /** An older reading than this is no longer shown (the TV was off for a long while). */

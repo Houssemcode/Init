@@ -1,8 +1,8 @@
 {
-  "name": "custom-launcher",
-  "version": "1.1.0",
+  "name": "init-launcher",
+  "version": "1.0.0",
   "private": true,
-  "description": "Custom home screen for LG webOS TVs: clock, apps row, wallpaper and USB slideshow",
+  "description": "Init home screen for LG webOS TVs: clock, apps row, wallpaper and USB slideshow",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -23,9 +23,9 @@ function classicScriptTag (): Plugin {
 	};
 }
 
-// HEARTH_WEATHER=0 builds without the weather widget (the code is removed from the bundle).
+// INIT_WEATHER=0 builds without the weather widget (the code is removed from the bundle).
 const env = (globalThis as unknown as {process?: {env: Record<string, string | undefined>}}).process;
-const WEATHER = !(env && env.env.HEARTH_WEATHER === '0');
+const WEATHER = !(env && (env.env.INIT_WEATHER === '0' || env.env.HEARTH_WEATHER === '0'));
 
 export default defineConfig({
 	define: {__WEATHER__: JSON.stringify(WEATHER)},

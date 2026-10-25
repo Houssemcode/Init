@@ -1,8 +1,8 @@
 # Changelog
 
-## 1.1.0
+## 1.0.0
 
-The launcher is now called **Hearth**, with a new icon, and it is faster, easier to set up and much more complete.
+Initial release of **Init**: a fast, calm home screen for LG webOS TVs.
 
 **New**
 - **Weather** under the clock: temperature, conditions and today's high and low, from [Open-Meteo](https://open-meteo.com) (no account, no key). Choose a city from a list of about 75 or search for any place
@@ -10,7 +10,7 @@ The launcher is now called **Hearth**, with a new icon, and it is faster, easier
 - **Widget colour and opacity** (Settings → Wallpaper) for the clock, date and weather: white, warm white, ice blue, amber, grey, dark grey, black and three gradients (Ember, Ocean, Dusk), at 10 to 100 %.
   Readable on light pictures, and a description explains why.
 - **Six clock fonts** (Inter, TV font, Poppins, Oswald, Roboto Mono, Cormorant Garamond).
-- **Add Hearth as a TV input** so the TV can start straight into it (Options → Add the launcher as a TV input).
+- **Add Init as a TV input** so the TV can start straight into it (Options → Add the launcher as a TV input).
 - **LG logo switch:** Options → *Show the LG logo when the TV starts* reads and changes LG's own (normally hidden) setting.
 - **Refresh list** button in Settings → Apps, to find newly installed apps at once.
 - **Move to end** in an app's menu (hold OK), **System Settings** tile, and **LG Home** moved before it.
@@ -19,9 +19,9 @@ The launcher is now called **Hearth**, with a new icon, and it is faster, easier
 - **Install and update through the Homebrew Channel:** add this repository once and the Homebrew Channel shows new versions (see the README).
 
 **Faster and smoother**
-- The app list is checked and reloaded in the background a few seconds after Hearth appears, not at start-up, and merged into fewer calls. The saved full app list and its icons are never replaced by the small built-in list.
+- The app list is checked and reloaded in the background a few seconds after Init appears, not at start-up, and merged into fewer calls. The saved full app list and its icons are never replaced by the small built-in list.
 - Smoother scrolling along the row (only movement and fade are animated).
-- The Home-button helper now starts about a second after Hearth appears, which removes the short flash of LG Home after boot, even with *Start the launcher helper at boot* switched off.
+- The Home-button helper now starts about a second after Init appears, which removes the short flash of LG Home after boot, even with *Start the launcher helper at boot* switched off.
 
 **Clearer messages and non-rooted TVs**
 - Every failure now says what failed and why (service not running, no root, refused, too slow, or the command's own error), with a *Try again* in the wallpaper picker.

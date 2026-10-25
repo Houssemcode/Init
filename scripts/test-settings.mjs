@@ -24,7 +24,7 @@ const p = await import(out);
 const s = await import(storageOut);
 let fail = 0;
 const eq = (a, b, m) => { const ok = JSON.stringify(a) === JSON.stringify(b); if (!ok) { fail++; console.log('FAIL', m, JSON.stringify(a), '!=', JSON.stringify(b)); } else console.log('ok  ', m); };
-const KEY = 'customlauncher-config-v1';
+const KEY = 'initlauncher-config-v1';
 
 // ---- defaults and loading ----
 const d = s.loadConfig();
@@ -99,7 +99,7 @@ eq(look.map((o) => o.valueText), ['OLED black', '100%', '1 row', undefined, '50 
 eq(p.applyPref(c0, 'rows', 'ok').rows, 2, 'Rows of apps: 1 -> 2');
 eq(p.applyPref(p.applyPref(c0, 'rows', 'ok'), 'rows', 'ok').rows, 1, 'and 2 -> 1');
 eq(p.applyPref(c0, 'showLabels', 'ok').showLabels, false, 'Show app names switches off');
-const optsOn = p.optionsFor('options', c0, {homeApp: 'tld.my.customlauncher'});
+const optsOn = p.optionsFor('options', c0, {homeApp: 'dev.init.tv'});
 const optsOff = p.optionsFor('options', c0, {homeApp: 'com.webos.app.home'});
 const optsUnknown = p.optionsFor('options', c0, {homeApp: null});
 eq([optsOn, optsOff, optsUnknown].map((o) => o.find((x) => x.id === 'useAsHome').valueText), ['On', 'Off', 'Unknown'], 'home-app row shows On / Off / Unknown');

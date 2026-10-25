@@ -71,7 +71,7 @@ eq(w.writeWallpaperCache(id, 'data:image/jpeg;base64,AAAA'), true, 'cache write 
 eq(w.readWallpaperCache(id), 'data:image/jpeg;base64,AAAA', 'cache returns the saved picture');
 eq(w.readWallpaperCache(w.wallpaperCacheId('image', '/tmp/usb/other.jpg')), null, 'a different choice does not get the old picture');
 eq(w.readWallpaperCache(w.wallpaperCacheId('folder', '/tmp/usb/a.jpg')), null, 'mode is part of the key');
-mem['customlauncher-wallpaper-data-v1'] = 'javascript:alert(1)';
+mem['initlauncher-wallpaper-data-v1'] = 'javascript:alert(1)';
 eq(w.readWallpaperCache(id), null, 'a cache entry that is not an image is ignored');
 w.clearWallpaperCache();
 eq(w.readWallpaperCache(id), null, 'clear empties the cache');
@@ -79,7 +79,7 @@ globalThis.localStorage = {getItem: () => null, setItem: () => { throw new Error
 eq(w.writeWallpaperCache(id, 'data:image/jpeg;base64,AAAA'), false, 'a full storage reports failure instead of throwing');
 // Every photo once per round, including reopening between every displayed photo.
 const deckMemory = {};
-const deckKey = 'customlauncher-wallpaper-deck-v1';
+const deckKey = 'initlauncher-wallpaper-deck-v1';
 const storage = {
   getItem: (key) => deckMemory[key] || null,
   setItem: (key, value) => { deckMemory[key] = value; }

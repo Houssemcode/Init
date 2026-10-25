@@ -40,7 +40,7 @@ const MISC = {lgHome: 'lg-home', settings: 'settings', system: 'system-settings'
 const MISC_TILES: TileModel[] = [
 	{key: MISC.lgHome, label: 'LG Home', glyph: 'house'},
 	{key: MISC.system, label: 'System Settings', glyph: 'tv'},
-	{key: MISC.settings, label: 'Hearth Settings', glyph: 'gear'}
+	{key: MISC.settings, label: 'Init Settings', glyph: 'gear'}
 ];
 
 export function App () {
@@ -291,7 +291,7 @@ export function App () {
 		const onVisibility = () => {
 			if (!config.replaceHome && document.hidden && Date.now() - closedAt.current < 2500) {
 				setConfig((c) => { const next = {...c, closeHome: false}; saveConfig(next); return next; });
-				try { localStorage.setItem('customlauncher-homekill-off', '1'); } catch { /* ignore */ }
+				try { localStorage.setItem('initlauncher-homekill-off', '1'); } catch { /* ignore */ }
 			}
 			arm();
 		};
@@ -352,8 +352,8 @@ export function App () {
 		const onVisibility = () => {
 			if (document.hidden) return;
 			try {
-				if (localStorage.getItem('customlauncher-homekill-off')) {
-					localStorage.removeItem('customlauncher-homekill-off');
+				if (localStorage.getItem('initlauncher-homekill-off')) {
+					localStorage.removeItem('initlauncher-homekill-off');
 					showToast('"Close LG Home" was turned off: LG Home kept coming back to the front', 'error');
 				}
 			} catch { /* ignore */ }

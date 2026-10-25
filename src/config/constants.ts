@@ -1,6 +1,6 @@
 // App-wide constants that are not visual tokens (see theme/tokens.ts for those).
 
-export const APP_ID = 'tld.my.customlauncher';
+export const APP_ID = 'dev.init.tv';
 
 /** webOS app IDs the launcher itself needs. */
 export const SYSTEM_APP = {
@@ -41,7 +41,7 @@ export const TIMING = {
 } as const;
 
 /** localStorage key for the user's selections. Bump the suffix on breaking changes. */
-export const STORAGE_KEY = 'customlauncher-config-v1';
+export const STORAGE_KEY = 'initlauncher-config-v1';
 
 /** Wallpaper / slideshow settings. */
 export const WALLPAPER = {

@@ -4,7 +4,7 @@
 
 import type {AppEntry} from './apps';
 
-export const APPS_CACHE_KEY = 'customlauncher-apps-v1';
+export const APPS_CACHE_KEY = 'initlauncher-apps-v1';
 
 export function serializeApps (apps: AppEntry[]): string {
 	return JSON.stringify(apps.map((a) => ({

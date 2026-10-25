@@ -67,7 +67,7 @@ export function shuffled<T> (list: T[]): T[] {
 }
 
 // One persisted deck per selected folder, consumed only as photos are loaded.
-const SHUFFLE_KEY = 'customlauncher-wallpaper-deck-v1';
+const SHUFFLE_KEY = 'initlauncher-wallpaper-deck-v1';
 
 export function createShuffleOrder (files: string[], folderId: string) {
 	const id = JSON.stringify([folderId, files]);
@@ -314,8 +314,8 @@ function decode (url: string): Promise<HTMLImageElement> {
 
 // ---------- the startup cache: the picture last on screen, at screen size ----------
 
-const CACHE_ID_KEY = 'customlauncher-wallpaper-id-v1';
-const CACHE_DATA_KEY = 'customlauncher-wallpaper-data-v1';
+const CACHE_ID_KEY = 'initlauncher-wallpaper-id-v1';
+const CACHE_DATA_KEY = 'initlauncher-wallpaper-data-v1';
 
 export function wallpaperCacheId (mode: string, path: string): string {
 	return `${mode}|${path}`;
